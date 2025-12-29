@@ -44,7 +44,12 @@ class Orchestrator:
         self.skills = [LauncherSkill(), SystemSkill(), ShortcutsSkill()]
         
         self.running = True
+
         logger.info("Karien started. Say something...")
+        
+        # Connect to VTS
+        await vts.connect()
+        
         tts.speak("I'm awake. What do you want?")
 
         while self.running:
@@ -81,6 +86,8 @@ class Orchestrator:
                 if not executed:
                     logger.warning(f"Unknown command: {cmd}")
 
+        await vts.close()
         logger.info("Karien stopped.")
+
 
 orchestrator = Orchestrator()

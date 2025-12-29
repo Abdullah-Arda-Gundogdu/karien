@@ -5,12 +5,16 @@ from typing import Dict, Any, List, Optional
 from assistant.core.config import config
 from assistant.core.logging_config import logger
 
+
 class VTSClient:
     def __init__(self):
         self.url = config.VTS_URL
         self.token = config.VTS_TOKEN
         self.plugin_name = "KarienAssistant"
         self.developer = "Abdullah Arda Gundogdu"
+        
+        self.ws = None
+        self.connected = False
         
         # Load mood mapping
         self.moods = {}
@@ -39,12 +43,10 @@ class VTSClient:
         response = await ws.recv()
         return json.loads(response)
 
-
     async def authenticate(self, ws) -> bool:
         """
         Authenticates with VTS. Handles token requests if needed.
         """
-        # 1. Authenticate
         auth_payload = self._req(
             "AuthenticationRequest",
             {
@@ -101,22 +103,48 @@ class VTSClient:
         
         return True
 
+    async def connect(self):
+        """
+        Establishes a persistent connection to VTube Studio.
+        """
+        if self.connected and self.ws:
+            return
+
+        logger.info(f"Connecting to VTube Studio at {self.url}...")
+        try:
+            self.ws = await websockets.connect(self.url, open_timeout=2)
+            if await self.authenticate(self.ws):
+                self.connected = True
+                logger.info("VTS connected and authenticated.")
+            else:
+                logger.error("VTS connected but failed authentication.")
+                await self.close()
+        except Exception as e:
+            logger.error(f"Failed to connect to VTS: {e}")
+            self.connected = False
+
+    async def close(self):
+        if self.ws:
+            await self.ws.close()
+        self.connected = False
+        self.ws = None
+        logger.info("VTS connection closed.")
 
     async def trigger_hotkey(self, ws, hotkey_name: str):
         """
         Triggers a hotkey by name using the provided websocket connection.
         """
-        # 2. Get Hotkeys
+        # 1. Get Hotkeys
         hk_resp = await self._send(ws, self._req("HotkeysInCurrentModelRequest", request_id="hk_list"))
         hotkeys = hk_resp.get("data", {}).get("availableHotkeys", [])
         
-        # 3. Find Hotkey ID
+        # 2. Find Hotkey ID
         match = next((hk for hk in hotkeys if hk.get("name") == hotkey_name), None)
         if not match:
             logger.error(f"Hotkey '{hotkey_name}' not found in current model.")
             return
 
-        # 4. Trigger
+        # 3. Trigger
         trig_resp = await self._send(ws, self._req("HotkeyTriggerRequest", {"hotkeyID": match["hotkeyID"]}, request_id="hk_trig"))
         if trig_resp.get("messageType") == "APIError":
             logger.error(f"VTS Trigger Failed: {trig_resp}")
@@ -125,8 +153,8 @@ class VTSClient:
 
     async def trigger_mood(self, mood_key: str):
         """
-        Connects to VTS, authenticates, and triggers the hotkey associated with the mood.
-        This is a one-off connection for MVP simplicity.
+        Triggers the mood using the persistent connection. 
+        Attempts to reconnect if not connected.
         """
         if mood_key not in self.moods:
             logger.warning(f"Mood '{mood_key}' not defined in moods.json.")
@@ -134,16 +162,21 @@ class VTSClient:
 
         hotkey_name = self.moods[mood_key]
         logger.info(f"Triggering mood: {mood_key} -> {hotkey_name}")
+        
+        if not self.connected or not self.ws:
+            logger.warning("VTS not connected. Attempting valid connection...")
+            await self.connect()
+        
+        if self.connected and self.ws:
+            try:
+                await self.trigger_hotkey(self.ws, hotkey_name)
+            except Exception as e:
+                logger.error(f"Error triggering mood (reconnecting...): {e}")
+                self.connected = False
+                await self.connect()
+                if self.connected and self.ws: # Retry once
+                     await self.trigger_hotkey(self.ws, hotkey_name)
 
-        try:
-            async with websockets.connect(self.url, open_timeout=2) as ws:
-                if not await self.authenticate(ws):
-                    return
-                
-                await self.trigger_hotkey(ws, hotkey_name)
-
-        except Exception as e:
-            logger.error(f"VTS Connection Error: {e}")
 
 
 

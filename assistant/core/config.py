@@ -8,9 +8,13 @@ from dotenv import load_dotenv
 # We will assume running from root or assistant/ works if we use absolute or smart relative paths
 # For now, let's look for secrets in common places
 
+
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 SECRETS_DIR = BASE_DIR / ".secrets"
 CONFIG_DIR = BASE_DIR / "config"
+
+# Explicitly load .env from the project root
+load_dotenv(BASE_DIR / ".env")
 
 class Config:
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
