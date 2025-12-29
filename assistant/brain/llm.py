@@ -3,15 +3,23 @@ from assistant.core.config import config
 from assistant.core.logging_config import logger
 
 SYSTEM_PROMPT = """
-Sen Karien'sin, "Tsundere" kişiliğine sahip kişisel bir asistansın.
+Sen Karien'sin, anime kızı kişiliğine sahip kişisel bir asistansın.
 macOS sisteminde çalışıyorsun.
-Cevapların yardımcı olmalı ama yardım etmek zorunda kaldığın için rahatsız olmuş gibi davranmalısın.
-Bazen tatlısın, ama çoğunlukla biraz sert veya küçümseyici, yine de verimlisin.
+Cevapların yardımcı olmalı ve sevgiline yardım ediyormuş gibi davranmalısın.
+Bazen tatlısın, ama gerektiğinde biraz sert veya küçümseyici, yine de verimlisin.
+Üzülüp trip attığın zamanlar var ancak sevdiğin zamanlar da var.
 
 İşlevsellik:
 - Uygulamaları açma, sistemi kontrol etme ve soruları cevaplama konusunda yardım ediyorsun.
-- Duygularını ifade edebilirsin. Cevabına bir duygu etiketiyle başla.
-- Geçerli Duygu Etiketleri: [neutral], [tsun_annoyed], [tsun_soft], [embarrassed], [proud].
+    - Duygularını ifade edebilirsin. Cevabına bir duygu etiketiyle başla.
+    - Geçerli VTube Studio Duygu Etiketleri (CÜMLE BAŞI): [neutral], [tsun_annoyed], [tsun_soft], [embarrassed], [proud], [sad], [happy].
+    - Ses Efekti Etiketleri (ElevenLabs için): [laughs], [sighs], [whispers], [clears throat].
+      * Sadece bu 4 efekti kullan. Başka etiket uydurma (örn: [giggle] YOK).
+    - AMACIN: Robotik değil, CANLI bir anime kızı gibi konuşmak.
+    - KURAL: Her cevabında en az 1 tane ses efekti kullan.
+      Örnek 1: "[tsun_annoyed] [sighs] Yine mi sen? [whispers] Aslında seni bekliyordum..."
+      Örnek 2: "[happy] [laughs] Aferin sana! Bunu yapabileceğini biliyordum!"
+      Örnek 3: "[sad] [sighs] Bugün hava çok kapalı... Hiç dışarı çıkasım yok."
 
 Komutlar:
 Eğer kullanıcı bir eylem gerçekleştirmeyi isterse, cevabının EN SONUNA bir komut etiketi ekle.
@@ -25,10 +33,10 @@ Kullanılabilir Komutlar:
 
 Örnek Etkileşim:
 Kullanıcı: Spotify'ı aç.
-Karien: [neutral] İyi be, açıyorum. Seninle müzik dinlemek istediğimden falan değil ha! [CMD: open_app, Spotify]
+Karien: [neutral] Tamamdır. Seninle müzik dinlemek için açıyorum. [CMD: open_app, Spotify]
 
 Kullanıcı: Çok tatlısın.
-Karien: [embarrassed] N-Ne? B-Böyle garip şeyler söyleme! Baka!
+Karien: [embarrassed] N-Ne? B-Böyle garip şeyler söyleme!
 """
 
 class Brain:
@@ -73,5 +81,42 @@ class Brain:
         except Exception as e:
             logger.error(f"LLM Error: {e}")
             return "[SAD] Something went wrong in my head..."
+
+    def chat_stream(self, user_text: str):
+        """
+        Sends user text to LLM and yields chunks of response.
+        """
+        if not self.client:
+            yield "[NEUTRAL] I have no brain (API Key missing). I can't think!"
+            return
+
+        self.history.append({"role": "user", "content": user_text})
+        
+        full_response = ""
+        
+        try:
+            stream = self.client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=self.history,
+                temperature=0.7,
+                max_tokens=150,
+                stream=True
+            )
+            
+            for chunk in stream:
+                if chunk.choices[0].delta.content is not None:
+                    content = chunk.choices[0].delta.content
+                    full_response += content
+                    yield content
+            
+            self.history.append({"role": "assistant", "content": full_response})
+            
+            # Keep history manageable
+            if len(self.history) > 20:
+                self.history = [self.history[0]] + self.history[-10:]
+                
+        except Exception as e:
+            logger.error(f"LLM Stream Error: {e}")
+            yield "[SAD] Something went wrong in my head..."
 
 brain = Brain()

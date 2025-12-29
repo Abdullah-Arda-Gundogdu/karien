@@ -12,13 +12,21 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 SECRETS_DIR = BASE_DIR / ".secrets"
 CONFIG_DIR = BASE_DIR / "config"
+ASSETS_DIR = BASE_DIR / "assets"
 
 # Explicitly load .env from the project root
 load_dotenv(BASE_DIR / ".env")
 
 class Config:
+    ASSETS_DIR = BASE_DIR / "assets"
+    
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
     ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+    ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
+    # Default to a generic female anime voice if not specified.
+    # Users should ideally set a specific voice ID in .env
+    ELEVENLABS_VOICE_ID = os.getenv("ELEVENLABS_VOICE_ID", "fUjY9K2nAIwlALOwSiwc") # Example: Yui (default) - Replace with Animation Voice ID
+    ELEVENLABS_MODEL_ID = os.getenv("ELEVENLABS_MODEL_ID", "eleven_turbo_v2_5")
 
 
     # VTube Studio

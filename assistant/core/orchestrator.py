@@ -50,7 +50,16 @@ class Orchestrator:
         # Connect to VTS
         await vts.connect()
         
-        tts.speak("Uyandım. Ne istiyorsun?")
+        # Play startup sound if available to save costs
+        from assistant.core.config import config
+        import subprocess
+        startup_file = config.ASSETS_DIR / "startup.mp3"
+        
+        if startup_file.exists():
+            logger.info(f"Playing startup audio: {startup_file}")
+            subprocess.run(["afplay", str(startup_file)])
+        else:
+            tts.speak("Selam! Ben Karien! Sana nasıl yardımcı olabilirim?")
 
         while self.running:
             # 1. Listen
@@ -63,23 +72,78 @@ class Orchestrator:
                 tts.speak("Sonunda. Görüşürüz.")
                 break
 
-            # 2. Think
-            response_full = brain.chat(user_text)
+            # 2. Think & Act (Streaming)
+            logger.info("Thinking...")
             
-            # 3. Parse
-            mood, clean_response, cmd_tuple = self.parse_response(response_full)
-            logger.info(f"Raw LLM Response: {response_full}")
-            logger.info(f"Parsed Mood: {mood}")
+            # Reset state for new turn
+            full_response_buffer = ""
+            sentence_buffer = ""
+            mood_detected = False
             
-            # 4. Act
-            logger.info(f"Triggering mood: {mood} (awaiting...)")
-            await vts.trigger_mood(mood)
+            # Start streaming
+            stream = brain.chat_stream(user_text)
             
-            # Speak first, then act (or parallel? Serial is safer for now)
-            tts.speak(clean_response)
+            for token in stream:
+                full_response_buffer += token
+                sentence_buffer += token
+                
+                # Check for Mood at the start (if not yet found)
+                if not mood_detected:
+                    mood_match = re.search(r"^\s*\[([a-zA-Z_]+)\]", full_response_buffer)
+                    if mood_match:
+                        mood = mood_match.group(1).lower()
+                        logger.info(f"Detected Mood: {mood}")
+                        await vts.trigger_mood(mood)
+                        mood_detected = True
+                        
+                        # Remove mood tag from sentence buffer so we don't speak it
+                        # We only remove it from sentence_buffer, full_response_buffer keeps it for history/debug
+                        sentence_buffer = sentence_buffer.replace(mood_match.group(0), "", 1)
+
+                # Check for sentence delimiters
+                # We look for . ? ! followed by space or end of string
+                # Note: This is a simple heuristic.
+                if re.search(r"[.!?]\s", sentence_buffer):
+                    # We have a sentence!
+                    # Split by the delimiter to get the sentence and the remainder
+                    parts = re.split(r"([.!?]\s)", sentence_buffer, 1)
+                    if len(parts) >= 2:
+                        sentence = parts[0] + parts[1] # "Hello." + " "
+                        remainder = "".join(parts[2:]) # Rest
+                        
+                        # Clean up sentence (remove potential CMD tags if they appeared mid-stream, though unlikely given prompt instructions)
+                        # Actually CMD tags specified to be at END.
+                        # But simpler: just speak what we have if it's not a tag.
+                        
+                        # Filter out potential partial tags if any (basic safety)
+                        if "[" not in sentence:
+                            tts.speak_async(sentence.strip())
+                            sentence_buffer = remainder
+                        else:
+                            # If we see a bracket, it might be a start of a command or mood (if late). 
+                            # If it's a command, we don't speak it.
+                            # So we wait until we are sure.
+                            pass
+
+            # End of stream.
+            # 1. Speak any remaining text in buffer (if not a command)
+            remaining_text = sentence_buffer.strip()
+            # Remove Command tag if present
+            cmd_match = re.search(r"\[CMD:.*?\]", remaining_text)
+            if cmd_match:
+                remaining_speakable = remaining_text[:cmd_match.start()].strip()
+                if remaining_speakable:
+                    tts.speak_async(remaining_speakable)
+            else:
+                if remaining_text:
+                    tts.speak_async(remaining_text)
+
+            # 3. Parse & Execute Command (using the full response)
+            _, _, cmd_tuple = self.parse_response(full_response_buffer)
             
             if cmd_tuple:
                 cmd, params = cmd_tuple
+                logger.info(f"Executing command: {cmd} with params: {params}")
                 executed = False
                 for skill in self.skills:
                     if cmd in skill.commands:
@@ -88,6 +152,11 @@ class Orchestrator:
                         break
                 if not executed:
                     logger.warning(f"Unknown command: {cmd}")
+            
+            # Wait for TTS to finish speaking before listening again
+            # This prevents the mic from picking up the assistant's own voice
+            logger.debug("Waiting for TTS to finish...")
+            tts.wait_for_idle()
 
         await vts.close()
         logger.info("Karien stopped.")

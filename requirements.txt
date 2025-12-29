@@ -6,3 +6,4 @@ python-dotenv
 pydantic
 pyttsx3
 colorlog
+elevenlabs

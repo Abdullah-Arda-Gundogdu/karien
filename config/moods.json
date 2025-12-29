@@ -1,7 +1,7 @@
 {
     "neutral": "mood_neutral",
-    "tsun_annoyed": "mood_tsun_annoyed",
-    "tsun_soft": "mood_tsun_soft",
     "embarrassed": "mood_embarrassed",
-    "proud": "mood_proud"
+    "proud": "mood_proud",
+    "sad": "mood_sad",
+    "happy": "mood_happy"
 }

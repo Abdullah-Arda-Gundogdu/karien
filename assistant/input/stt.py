@@ -7,6 +7,23 @@ class SpeechToText:
         self.recognizer = sr.Recognizer()
         self.mic_index = config.MIC_INDEX
         logger.info(f"Initializing STT with mic index: {self.mic_index}")
+        
+        # Initialize Microphone once
+        self.mic = sr.Microphone(device_index=self.mic_index)
+        self.source = None
+        
+        try:
+            with self.mic as source:
+                logger.debug("Adjusting for ambient noise (one-time)...")
+                self.recognizer.adjust_for_ambient_noise(source, duration=0.5)
+                self.source = source # Keep source open/ready? 
+                # Note: sr.Microphone acts as a context manager. 
+                # Ideally we want to keep it open. But 'with' closes it on exit.
+                # However, we can manually call __enter__ to keep it open.
+                
+        except Exception as e:
+             logger.error(f"Failed to init mic: {e}")
+
         if config.OPENAI_API_KEY:
              from openai import OpenAI
              self.client = OpenAI(api_key=config.OPENAI_API_KEY)
@@ -18,11 +35,21 @@ class SpeechToText:
     def listen(self, timeout: int = 5, time_limit: int = 10) -> str:
         """
         Listens to the microphone and returns the recognized text using OpenAI Whisper.
+        Uses the persistent microphone source.
         """
         try:
-            with sr.Microphone(device_index=self.mic_index) as source:
-                logger.debug("Adjusting for ambient noise...")
-                self.recognizer.adjust_for_ambient_noise(source, duration=0.5)
+            # We must re-enter the context or just use the source if we kept it alive.
+            # Since `sr.Microphone` cleans up on exit, simpler way for "continuous":
+            # Just re-use the microphone instance, but we still need `with` or manual enter.
+            # To avoid the 0.5s noise adjust every time, we typically just skip it here 
+            # and rely on the one done in init (assuming 'source' carries that calibration, 
+            # which it does in 'recognizer.energy_threshold').
+            
+            with self.mic as source:
+                # logger.debug("Adjusting for ambient noise...") 
+                # self.recognizer.adjust_for_ambient_noise(source, duration=0.5) 
+                # REMOVED: We trust the initial calibration or dynamic adaptation.
+                
                 logger.info("Listening (OpenAI Whisper)...")
                 audio = self.recognizer.listen(source, timeout=timeout, phrase_time_limit=time_limit)
             
