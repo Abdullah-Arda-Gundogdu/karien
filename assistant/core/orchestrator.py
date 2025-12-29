@@ -20,7 +20,7 @@ class Orchestrator:
         cmd_tuple = None
         
         # Extract Mood
-        mood_match = re.search(r"^\s*\[([A-Z]+)\]\s*", text)
+        mood_match = re.search(r"^\s*\[([a-zA-Z_]+)\]\s*", text)
         if mood_match:
             mood = mood_match.group(1).lower()
             text = text[mood_match.end():]
@@ -50,7 +50,7 @@ class Orchestrator:
         # Connect to VTS
         await vts.connect()
         
-        tts.speak("I'm awake. What do you want?")
+        tts.speak("Uyandım. Ne istiyorsun?")
 
         while self.running:
             # 1. Listen
@@ -59,8 +59,8 @@ class Orchestrator:
             if not user_text:
                 continue
                 
-            if "goodbye" in user_text.lower() or "shut down" in user_text.lower():
-                tts.speak("Finally. Bye.")
+            if any(phrase in user_text.lower() for phrase in ["goodbye", "shut down", "kapat", "güle güle", "görüşürüz"]):
+                tts.speak("Sonunda. Görüşürüz.")
                 break
 
             # 2. Think
@@ -68,9 +68,12 @@ class Orchestrator:
             
             # 3. Parse
             mood, clean_response, cmd_tuple = self.parse_response(response_full)
+            logger.info(f"Raw LLM Response: {response_full}")
+            logger.info(f"Parsed Mood: {mood}")
             
             # 4. Act
-            asyncio.create_task(vts.trigger_mood(mood))
+            logger.info(f"Triggering mood: {mood} (awaiting...)")
+            await vts.trigger_mood(mood)
             
             # Speak first, then act (or parallel? Serial is safer for now)
             tts.speak(clean_response)
