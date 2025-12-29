@@ -1,0 +1,8 @@
+openai
+SpeechRecognition
+pyaudio
+websockets
+python-dotenv
+pydantic
+pyttsx3
+colorlog
