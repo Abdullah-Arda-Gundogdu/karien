@@ -12,17 +12,27 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 SECRETS_DIR = BASE_DIR / ".secrets"
 CONFIG_DIR = BASE_DIR / "config"
 
-load_dotenv(SECRETS_DIR / "vts_token.json") 
-load_dotenv(BASE_DIR / ".env")
-
 class Config:
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
     ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-    
+
+
     # VTube Studio
     VTS_URL = "ws://127.0.0.1:8001"
-    VTS_TOKEN = os.getenv("token") # vts_token.json usually has {"token": "..."}
+    
+    # Load token from JSON file
+    _token_path = SECRETS_DIR / "vts_token.json"
+    VTS_TOKEN = None
+    if _token_path.exists():
+        import json
+        try:
+            _data = json.loads(_token_path.read_text())
+            VTS_TOKEN = _data.get("token")
+        except Exception as e:
+            print(f"Error loading VTS token: {e}")
+
     MOODS_FILE_PATH = CONFIG_DIR / "moods.json"
+
     
     # Audio
     MIC_INDEX = int(os.getenv("MIC_INDEX", 0))
