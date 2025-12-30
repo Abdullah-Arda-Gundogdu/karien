@@ -59,7 +59,7 @@ class DeepgramSTT:
             channels=self.channels,
             interim_results=True,
             vad_events=True,
-            endpointing=300
+            endpointing=600
         ) as socket:
             
             async def sender():
