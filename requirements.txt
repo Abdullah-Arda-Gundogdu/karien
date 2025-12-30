@@ -8,3 +8,4 @@ pyttsx3
 colorlog
 elevenlabs
 deepgram-sdk==3.*
+vosk
