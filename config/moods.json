@@ -3,5 +3,6 @@
     "embarrassed": "mood_embarrassed",
     "proud": "mood_proud",
     "sad": "mood_sad",
-    "happy": "mood_happy"
+    "happy": "mood_happy",
+    "annoyed": "mood_annoyed"
 }

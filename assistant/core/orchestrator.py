@@ -208,8 +208,8 @@ class Orchestrator:
                     # 1. Handle Core Orchestrator Commands (Termination)
                     if cmd == "stop_listening":
                         logger.info("LLM requested stop_listening. Switching to Standby.")
+                        tts.wait_for_idle() # Let her say any pending response first
                         self.play_goodbye_sound()
-                        tts.wait_for_idle() # Let her say goodbye
                         self.hide_vts()
                         self.is_active = False
                         # No continue needed here as loop ends after TTS

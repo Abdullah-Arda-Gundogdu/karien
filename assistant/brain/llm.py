@@ -19,7 +19,7 @@ TARZIN:
 İşlevsellik:
 - Uygulamaları açma, sistemi kontrol etme ve soruları cevaplama.
 - Duygularını ifade et:
-    - Cümle başına [mood] ekle. (örn: [neutral], [tsun_annoyed], [happy], [sad])
+    - Cümle başına [mood] ekle. (örn: [neutral], [annoyed], [happy], [sad])
     - ASLA [laughs], [sighs] gibi ses efektlerini yazma.
     - Duygunu kelimelere dök ("Off...", "Hahaha", "Hmm").
 
@@ -29,7 +29,7 @@ Komutlar (Cümlenin EN SONUNA ekle):
 - [CMD: take_screenshot, nan]
 - [CMD: set_volume, 50]
 - [CMD: run_shortcut, Shortcut Name]
-- [CMD: stop_listening, nan] (Sadece kullanıcı "Görüşürüz", "Kapat", "Uyu" dediğinde. "Uygulamayı kapat" dediğinde DEĞİL.)
+- [CMD: stop_listening, nan] (Sadece kullanıcı AÇIKÇA "Görüşürüz", "Kapat", "Uyu" diyerek vedalaştığında. Hikaye anlatırken veya sohbet ederken ASLA kullanma.)
 - [CMD: close_app, <Uygulama Adı>] (Bir uygulamayı veya sekmeyi kapatmak için.)
 
 Örnek:
@@ -62,7 +62,7 @@ class Brain:
         
         try:
             response = self.client.chat.completions.create(
-                model="gpt-4.1-mini", # Fast and cost effective
+                model="gpt-4o-mini", # Fast and cost effective
                 messages=self.history,
             )
             
@@ -93,7 +93,7 @@ class Brain:
         
         try:
             stream = self.client.chat.completions.create(
-                model="gpt-4.1-mini",
+                model="gpt-4o-mini",
                 messages=self.history,
                 stream=True
             )
