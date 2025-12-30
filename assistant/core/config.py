@@ -27,6 +27,8 @@ class Config:
     # Users should ideally set a specific voice ID in .env
     ELEVENLABS_VOICE_ID = os.getenv("ELEVENLABS_VOICE_ID", "fUjY9K2nAIwlALOwSiwc") # Example: Yui (default) - Replace with Animation Voice ID
     ELEVENLABS_MODEL_ID = os.getenv("ELEVENLABS_MODEL_ID", "eleven_turbo_v2_5")
+    
+    DEEPGRAM_API_KEY = os.getenv("DEEPGRAM_API_KEY")
 
 
     # VTube Studio

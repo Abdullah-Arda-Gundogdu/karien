@@ -63,7 +63,7 @@ class Orchestrator:
 
         while self.running:
             # 1. Listen
-            user_text = stt.listen()
+            user_text = await stt.listen()
             
             if not user_text:
                 continue

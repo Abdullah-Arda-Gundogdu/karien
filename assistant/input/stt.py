@@ -1,95 +1,136 @@
-import speech_recognition as sr
+import asyncio
+import os
+import json
+from typing import Optional
 from assistant.core.logging_config import logger
 from assistant.core.config import config
+import pyaudio
 
-class SpeechToText:
+try:
+    from deepgram import AsyncDeepgramClient
+except ImportError:
+    import deepgram
+    AsyncDeepgramClient = deepgram.AsyncDeepgramClient
+
+class DeepgramSTT:
     def __init__(self):
-        self.recognizer = sr.Recognizer()
-        self.mic_index = config.MIC_INDEX
-        logger.info(f"Initializing STT with mic index: {self.mic_index}")
+        self.api_key = config.DEEPGRAM_API_KEY
+        if not self.api_key:
+            logger.error("DEEPGRAM_API_KEY is missing. STT will not work.")
         
-        # Initialize Microphone once
-        self.mic = sr.Microphone(device_index=self.mic_index)
-        self.source = None
+        # Audio config
+        self.rate = 16000
+        self.channels = 1
+        self.chunk = 1024
         
-        try:
-            with self.mic as source:
-                logger.debug("Adjusting for ambient noise (one-time)...")
-                self.recognizer.adjust_for_ambient_noise(source, duration=0.5)
-                self.source = source # Keep source open/ready? 
-                # Note: sr.Microphone acts as a context manager. 
-                # Ideally we want to keep it open. But 'with' closes it on exit.
-                # However, we can manually call __enter__ to keep it open.
-                
-        except Exception as e:
-             logger.error(f"Failed to init mic: {e}")
+        self.audio = pyaudio.PyAudio()
+        self.client = AsyncDeepgramClient(api_key=self.api_key) if self.api_key else None
 
-        if config.OPENAI_API_KEY:
-             from openai import OpenAI
-             self.client = OpenAI(api_key=config.OPENAI_API_KEY)
-        else:
-            logger.error("Create OpenAI client for STT failed: OPENAI_API_KEY missing")
-            self.client = None
-
-
-    def listen(self, timeout: int = 5, time_limit: int = 10) -> str:
+    async def listen(self, timeout: int = 15) -> str:
         """
-        Listens to the microphone and returns the recognized text using OpenAI Whisper.
-        Uses the persistent microphone source.
+        Connects to Deepgram Live, streams microphone audio, and returns the transcript.
         """
-        try:
-            # We must re-enter the context or just use the source if we kept it alive.
-            # Since `sr.Microphone` cleans up on exit, simpler way for "continuous":
-            # Just re-use the microphone instance, but we still need `with` or manual enter.
-            # To avoid the 0.5s noise adjust every time, we typically just skip it here 
-            # and rely on the one done in init (assuming 'source' carries that calibration, 
-            # which it does in 'recognizer.energy_threshold').
-            
-            with self.mic as source:
-                # logger.debug("Adjusting for ambient noise...") 
-                # self.recognizer.adjust_for_ambient_noise(source, duration=0.5) 
-                # REMOVED: We trust the initial calibration or dynamic adaptation.
-                
-                logger.info("Listening (OpenAI Whisper)...")
-                audio = self.recognizer.listen(source, timeout=timeout, phrase_time_limit=time_limit)
-            
-            logger.debug("Processing audio with OpenAI...")
-            
-            if not self.client:
-                 logger.error("OpenAI Client not available.")
-                 return ""
-
-            # We need to save the audio to a file or file-like object to send to OpenAI
-            # SpeechRecognition audio data is raw PCM or WAV data.
-            # We can get WAV data directly.
-            wav_data = audio.get_wav_data()
-            
-            import io
-            # Create a virtual file
-            audio_file = io.BytesIO(wav_data)
-            audio_file.name = "speech.wav" # OpenAI API requires a filename with extension
-            
-            transcript = self.client.audio.transcriptions.create(
-                model="whisper-1", 
-                file=audio_file,
-                language="tr"
-            )
-            
-            text = transcript.text
-            logger.info(f"Heard: {text}")
-            return text
-
-        except sr.WaitTimeoutError:
-            logger.debug("Listening timed out (silence).")
-            return ""
-        except sr.UnknownValueError:
-            logger.debug("Could not understand audio.")
-            return ""
-        except sr.RequestError as e:
-            logger.error(f"STT Service Error: {e}")
-            return ""
-        except Exception as e:
-            logger.error(f"STT Unexpected Error: {e}")
+        if not self.client:
+            logger.error("Cannot listen: No API Key or Client")
             return ""
 
-stt = SpeechToText()
+        # Print listening status for user visibility
+        print("Listening...", end="", flush=True)
+        
+        # Open Microphone Stream
+        stream = self.audio.open(
+            format=pyaudio.paInt16,
+            channels=self.channels,
+            rate=self.rate,
+            input=True,
+            frames_per_buffer=self.chunk
+        )
+        
+        transcript_result = ""
+        stop_event = asyncio.Event()
+
+        # Connect to Deepgram
+        async with self.client.listen.v1.connect(
+            model="nova-2", 
+            language="tr",
+            smart_format=True, 
+            encoding="linear16", 
+            sample_rate=self.rate,
+            channels=self.channels,
+            interim_results=True,
+            vad_events=True,
+            endpointing=300
+        ) as socket:
+            
+            async def sender():
+                try:
+                    while not stop_event.is_set():
+                        data = await asyncio.to_thread(stream.read, self.chunk, exception_on_overflow=False)
+                        await socket.send_media(data)
+                        await asyncio.sleep(0.001)
+                except Exception as e:
+                    logger.error(f"Sender error: {e}")
+
+            async def receiver():
+                nonlocal transcript_result
+                try:
+                    async for message in socket:
+                        # Process Transcript/Metadata
+                        if hasattr(message, 'channel'):
+                             # message.channel seems to be a list in this SDK version
+                             ch = message.channel
+                             if isinstance(ch, list):
+                                 ch = ch[0]
+                             
+                             if hasattr(ch, 'alternatives'):
+                                 alternatives = ch.alternatives
+                                 if alternatives:
+                                     transcript = alternatives[0].transcript
+                                     if transcript:
+                                         if message.is_final:
+                                             transcript_result += f" {transcript}"
+                                             # Print final part of this utterance
+                                             print(f"\rUser: {transcript_result.strip()}", end="", flush=True)
+                                             stop_event.set()
+                                             return
+                                         else:
+                                             # Print interim
+                                             print(f"\rUser: {transcript_result.strip()} {transcript}...", end="", flush=True)
+                        
+                        # Process UtteranceEnd
+                        msg_type = getattr(message, 'type', '')
+                        if msg_type == 'UtteranceEnd':
+                            stop_event.set()
+                            return
+
+                        if stop_event.is_set():
+                            return
+
+                except Exception as e:
+                    logger.error(f"Receiver error: {e}")
+
+            # Run both
+            sender_task = asyncio.create_task(sender())
+            receiver_task = asyncio.create_task(receiver())
+            
+            try:
+                await asyncio.wait_for(receiver_task, timeout=timeout)
+            except asyncio.TimeoutError:
+                pass
+            except Exception as e:
+                logger.error(f"Listen loop error: {e}")
+            
+            stop_event.set()
+            try:
+                await sender_task
+            except:
+                pass
+
+        # Cleanup Stream
+        stream.stop_stream()
+        stream.close()
+        
+        print("") # Newline after listening is done
+        return transcript_result.strip()
+
+stt = DeepgramSTT()
