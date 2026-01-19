@@ -14,6 +14,16 @@ class TextToSpeech:
         self.client = None
         self.provider = "openai"
 
+        # Initialize Pygame Mixer for Audio (Cross-Platform)
+        try:
+            import pygame
+            pygame.mixer.init()
+            logger.info("Pygame mixer initialized.")
+        except ImportError:
+            logger.error("Pygame not found. Run `pip install pygame`.")
+        except Exception as e:
+            logger.error(f"Failed to initialize Pygame mixer: {e}")
+
         # Check for ElevenLabs first (as requested for better quality)
         if config.ELEVENLABS_API_KEY:
             try:
@@ -52,7 +62,7 @@ class TextToSpeech:
         """
         Background thread that plays audio from the queue.
         """
-        import subprocess
+        import pygame
         from pathlib import Path
         
         while self.is_running:
@@ -71,22 +81,51 @@ class TextToSpeech:
                 
                 audio_file_path = result_container.get('path')
                 
-                if audio_file_path:
+                if audio_file_path and Path(audio_file_path).exists():
                     logger.info(f"Playing audio: {audio_file_path}")
-                    subprocess.run(["afplay", str(audio_file_path)])
                     try:
-                        Path(audio_file_path).unlink(missing_ok=True)
-                        logger.debug(f"Deleted temp audio: {audio_file_path}")
+                        pygame.mixer.music.load(str(audio_file_path))
+                        pygame.mixer.music.play()
+                        
+                        while pygame.mixer.music.get_busy():
+                            pygame.time.Clock().tick(10)
+                            
+                        # Unload to release file lock so we can delete it
+                        pygame.mixer.music.unload()
+
+                        try:
+                            Path(audio_file_path).unlink(missing_ok=True)
+                            logger.debug(f"Deleted temp audio: {audio_file_path}")
+                        except Exception as e:
+                            logger.warning(f"Failed to delete temp audio {audio_file_path}: {e}")
+                            
                     except Exception as e:
-                        logger.warning(f"Failed to delete temp audio {audio_file_path}: {e}")
+                        logger.error(f"Pygame Playback Error: {e}")
                 else:
-                    logger.warning("Skipping playback (generation failed).")
+                    logger.warning(f"Skipping playback (file not found or failed): {audio_file_path}")
 
                 self.queue.task_done()
             except queue.Empty:
                 continue
             except Exception as e:
-                logger.error(f"Playback Error: {e}")
+                logger.error(f"Playback Thread Error: {e}")
+
+    def play_file(self, file_path):
+        """
+        Directly play an existing audio file (blocking-ish or fire-and-forget logic).
+        For simplicity in Orchestrator, we'll queue it as a dummy generation.
+        """
+        if not file_path: 
+            return
+            
+        # Create a pre-filled result container
+        completion_event = threading.Event()
+        completion_event.set()
+        result_container = {'path': file_path}
+        
+        # We don't increment active_generations because it's already "done"
+        # But we do put it in the playback queue
+        self.queue.put((completion_event, result_container))
 
     def speak(self, text: str):
         """
@@ -135,7 +174,7 @@ class TextToSpeech:
                 # ElevenLabs Generation
                 # Ensure voice ID is set, or use a default
                 voice_id = config.ELEVENLABS_VOICE_ID 
-                print("Voice ID: " + voice_id)
+                logger.debug(f"Using ElevenLabs Voice ID: {voice_id}")
                 
                 # Use text_to_speech.convert (returns generator of bytes)
                 # Updated for new ElevenLabs SDK

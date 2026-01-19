@@ -38,54 +38,89 @@ class Orchestrator:
 
     def play_startup_sound(self):
         from assistant.core.config import config
-        import subprocess
         startup_file = config.ASSETS_DIR / "startup.mp3"
         
         if startup_file.exists():
             logger.info(f"Playing startup audio: {startup_file}")
-            subprocess.run(["afplay", str(startup_file)])
+            tts.play_file(str(startup_file))
         else:
             tts.speak("Selam! Ben Karien! Sana nasıl yardımcı olabilirim?")
 
     def play_goodbye_sound(self):
         from assistant.core.config import config
-        import subprocess
         goodbye_file = config.ASSETS_DIR / "goodbye.mp3"
         
         if goodbye_file.exists():
             logger.info(f"Playing goodbye audio: {goodbye_file}")
-            subprocess.run(["afplay", str(goodbye_file)])
+            tts.play_file(str(goodbye_file))
         else:
             tts.speak("Görüşürüz.")
 
     def bring_vts_to_front(self):
-        """Brings VTube Studio window to front using AppleScript."""
+        """Brings VTube Studio window to front (Cross-Platform)."""
+        import sys
         import subprocess
+        
         try:
-            # AppleScript to activate the application (brings to front)
-            subprocess.run(["osascript", "-e", 'tell application "VTube Studio" to activate'], check=True)
-            logger.info("VTube Studio brought to front.")
+            if sys.platform == "darwin":
+                # macOS (AppleScript)
+                subprocess.run(["osascript", "-e", 'tell application "VTube Studio" to activate'], check=True)
+                logger.info("VTube Studio brought to front (macOS).")
+                
+            elif sys.platform == "win32":
+                # Windows (pywinauto)
+                try:
+                    from pywinauto import Desktop
+                    
+                    # Attempt to find window by title
+                    # Note: Title might vary, usually "VTube Studio"
+                    app = Desktop(backend="uia").windows(title_re=".*VTube Studio.*")
+                    if app:
+                        window = app[0]
+                        if window.is_minimized():
+                            window.restore()
+                        window.set_focus()
+                        logger.info("VTube Studio brought to front (Windows).")
+                    else:
+                         logger.warning("VTube Studio window not found.")
+                except ImportError:
+                    logger.error("pywinauto not installed. Cannot control window.")
+                    
         except Exception as e:
             logger.warning(f"Failed to bring VTS to front: {e}")
 
     def hide_vts(self):
-        """Hides VTube Studio window using AppleScript."""
+        """Hides/Minimizes VTube Studio window (Cross-Platform)."""
+        import sys
         import subprocess
+        
         try:
-            # AppleScript to hide the application process
-            cmd = 'tell application "System Events" to set visible of process "VTube Studio" to false'
-            subprocess.run(["osascript", "-e", cmd], check=True)
-            logger.info("VTube Studio hidden.")
+            if sys.platform == "darwin":
+                # macOS (AppleScript)
+                cmd = 'tell application "System Events" to set visible of process "VTube Studio" to false'
+                subprocess.run(["osascript", "-e", cmd], check=True)
+                logger.info("VTube Studio hidden (macOS).")
+                
+            elif sys.platform == "win32":
+                # Windows (pywinauto) - Minimize
+                try:
+                    from pywinauto import Desktop
+                    app = Desktop(backend="uia").windows(title_re=".*VTube Studio.*")
+                    if app:
+                        window = app[0]
+                        window.minimize()
+                        logger.info("VTube Studio minimized (Windows).")
+                except ImportError:
+                    pass # error logged in bring_to_front already
+                    
         except Exception as e:
             logger.warning(f"Failed to hide VTS: {e}")
 
     async def run(self):
         # Register Skills
-        from assistant.skills.launcher import LauncherSkill
-        from assistant.skills.system import SystemSkill
-        from assistant.skills.shortcuts import ShortcutsSkill
+        from assistant.skills import LauncherSkill, SystemSkill, ShortcutsSkill, VisionSkill
         
-        self.skills = [LauncherSkill(), SystemSkill(), ShortcutsSkill()]
+        self.skills = [LauncherSkill(), SystemSkill(), ShortcutsSkill(), VisionSkill()]
         
         self.running = True
         
@@ -103,146 +138,154 @@ class Orchestrator:
         self.hide_vts()
 
         while self.running:
-            if not self.is_active:
-                # --- STANDBY MODE ---
-                # Listen locally for wake word
-                logger.info("Status: Standby. Listening for 'Hey Karien'...")
-                # Run blocking vosk listener in thread to avoid freezing asyncio loop
-                # Turkish model keywords candidates - using "kariyer" as proxy for "karien"
-                detected = await asyncio.to_thread(vosk_stt.listen_for_wakeword, ["hey kariyer", "merhaba kariyer"])
-                
-                if detected:
-                    logger.info("Wake Word Detected! Switching to Active Mode.")
-                    self.is_active = True
-                    self.bring_vts_to_front()
-                    self.play_startup_sound()
-                else:
-                    # If listen returned False (e.g. error), sleep briefly to avoid spin loop
-                    await asyncio.sleep(1)
+            try:
+                if not self.is_active:
+                    # --- STANDBY MODE ---
+                    # Listen locally for wake word
+                    logger.info("Status: Standby. Listening for 'Hey Karien'...")
+                    # Run blocking vosk listener in thread to avoid freezing asyncio loop
+                    # Turkish model keywords candidates - using "kariyer" as proxy for "karien"
+                    detected = await asyncio.to_thread(vosk_stt.listen_for_wakeword, ["hey kariyer", "merhaba kariyer"])
                     
-            else:
-                # --- ACTIVE MODE ---
-                # 1. Listen (Deepgram)
-                user_text = await stt.listen()
-                
-                if not user_text:
-                    continue
-                
-                # Legacy keyword checks REMOVED to solve "Close YouTube" issue.
-                # Now handled by LLM via [CMD: stop_listening, nan].
-                
-                # 2. Think & Act (Streaming)
-                logger.info("Thinking...")
-                
-                # Reset state for new turn
-                full_response_buffer = ""
-                sentence_buffer = ""
-                mood_detected = False
-                
-                # Start streaming
-                stream = brain.chat_stream(user_text)
-                
-                for token in stream:
-                    full_response_buffer += token
-                    sentence_buffer += token
-                    
-                    # Check for Mood at the start (if not yet found)
-                    if not mood_detected:
-                        mood_match = re.search(r"^\s*\[([a-zA-Z_]+)\]", full_response_buffer)
-                        if mood_match:
-                            mood = mood_match.group(1).lower()
-                            logger.info(f"Detected Mood: {mood}")
-                            await vts.trigger_mood(mood)
-                            mood_detected = True
-                            
-                            # Remove mood tag from sentence buffer so we don't speak it
-                            sentence_buffer = sentence_buffer.replace(mood_match.group(0), "", 1)
-
-                    # Check for sentence delimiters
-                    if re.search(r"[.!?]\s", sentence_buffer):
-                        parts = re.split(r"([.!?]\s)", sentence_buffer, 1)
-                        if len(parts) >= 2:
-                            sentence = parts[0] + parts[1] 
-                            remainder = "".join(parts[2:]) 
-                            
-                            if "[" not in sentence:
-                                # Double check and clean any remaining mood tags
-                                clean_sentence = re.sub(r"\[[a-zA-Z_]+\]", "", sentence).strip()
-                                if clean_sentence:
-                                    tts.speak_async(clean_sentence)
-                                sentence_buffer = remainder
-                            else:
-                                # If sentence contains a bracket, it might be a split tag. 
-                                # But we also want to catch tags inside the sentence.
-                                # Let's clean it aggressively.
-                                clean_sentence = re.sub(r"\[[a-zA-Z_]+\]", "", sentence).strip()
-                                if clean_sentence and "[" not in clean_sentence: # confirm no partial tags
-                                    tts.speak_async(clean_sentence)
-                                    sentence_buffer = remainder
-                                else:
-                                    # wait for more data if partial tag
-                                    pass
-
-                # End of stream.
-                remaining_text = sentence_buffer.strip()
-                cmd_match = re.search(r"\[CMD:.*?\]", remaining_text)
-                if cmd_match:
-                    remaining_speakable = remaining_text[:cmd_match.start()].strip()
-                    if remaining_speakable:
-                        clean_remaining = re.sub(r"\[[a-zA-Z_]+\]", "", remaining_speakable).strip()
-                        if clean_remaining:
-                            tts.speak_async(clean_remaining)
-                else:
-                    if remaining_text:
-                        clean_remaining = re.sub(r"\[[a-zA-Z_]+\]", "", remaining_text).strip()
-                        if clean_remaining:
-                            tts.speak_async(clean_remaining)
-
-                # 3. Parse & Execute Command
-                _, _, cmd_tuple = self.parse_response(full_response_buffer)
-                
-                if cmd_tuple:
-                    cmd, params = cmd_tuple
-                    logger.info(f"Executing command: {cmd} with params: {params}")
-                    
-                    # 1. Handle Core Orchestrator Commands (Termination)
-                    if cmd == "stop_listening":
-                        logger.info("LLM requested stop_listening. Switching to Standby.")
-                        tts.wait_for_idle() # Let her say any pending response first
-                        self.play_goodbye_sound()
-                        self.hide_vts()
-                        self.is_active = False
-                        # No continue needed here as loop ends after TTS
-                    
-                    elif cmd == "close_app":
-                         # Quick implementation for close app
-                         # params is a list, e.g. ['YouTube']
-                         app_name = params[0] if params else ""
-                         if app_name:
-                             import subprocess
-                             logger.info(f"Closing app: {app_name}")
-                             try:
-                                 # AppleScript to quit app
-                                 script = f'tell application "{app_name}" to quit'
-                                 subprocess.run(["osascript", "-e", script])
-                             except Exception as e:
-                                 logger.error(f"Failed to close app {app_name}: {e}")
-
-                    # 2. Handle Skill Commands
+                    if detected:
+                        logger.info("Wake Word Detected! Switching to Active Mode.")
+                        self.is_active = True
+                        self.bring_vts_to_front()
+                        self.play_startup_sound()
                     else:
-                        executed = False
-                        for skill in self.skills:
-                            if cmd in skill.commands:
-                                skill.execute(cmd, params)
-                                executed = True
-                                break
-                        if not executed:
-                            logger.warning(f"Unknown command: {cmd}")
-                
-                logger.debug("Waiting for TTS to finish...")
-                tts.wait_for_idle()
-
+                        # If listen returned False (e.g. error/timeout/interrupt), check if running
+                        if not self.running: break
+                        await asyncio.sleep(1)
+                        
+                else:
+                    # --- ACTIVE MODE ---
+                    await self._run_active_turn()
+                    
+            except Exception as e:
+                logger.error(f"Critical Error in Orchestrator Loop: {e}", exc_info=True)
+                tts.speak_async("Bir hata oluştu. Kendimi resetliyorum.")
+                self.is_active = False # Fallback to standby
+                await asyncio.sleep(3) # Breathe
+        
+        # Cleanup on exit
         await vts.close()
         logger.info("Karien stopped.")
+
+    async def _run_active_turn(self):
+        # 1. Listen (Deepgram)
+        user_text = await stt.listen()
+        
+        if not user_text:
+            return
+        
+        # 2. Think & Act (Streaming)
+        logger.info("Thinking...")
+        
+        # Reset state for new turn
+        full_response_buffer = ""
+        sentence_buffer = ""
+        mood_detected = False
+        pending_tool_calls = []
+        
+        # Start streaming
+        stream = brain.chat_stream(user_text)
+        
+        import json
+        
+        for chunk_type, chunk_data in stream:
+            if chunk_type == "CONTENT":
+                # Handle Text/Speech
+                token = chunk_data
+                full_response_buffer += token
+                sentence_buffer += token
+                
+                # Check for Mood at the start (if not yet found)
+                if not mood_detected:
+                    mood_match = re.search(r"^\s*\[([a-zA-Z_]+)\]", full_response_buffer)
+                    if mood_match:
+                        mood = mood_match.group(1).lower()
+                        logger.info(f"Detected Mood: {mood}")
+                        await vts.trigger_mood(mood)
+                        mood_detected = True
+                        
+                        # Remove mood tag from sentence buffer so we don't speak it
+                        sentence_buffer = sentence_buffer.replace(mood_match.group(0), "", 1)
+
+                # Check for sentence delimiters
+                if re.search(r"[.!?]\s", sentence_buffer):
+                    parts = re.split(r"([.!?]\s)", sentence_buffer, 1)
+                    if len(parts) >= 2:
+                        sentence = parts[0] + parts[1] 
+                        remainder = "".join(parts[2:]) 
+                        
+                        # Clean mood tags if any remain
+                        clean_sentence = re.sub(r"\[[a-zA-Z_]+\]", "", sentence).strip()
+                        if clean_sentence:
+                            tts.speak_async(clean_sentence)
+                        sentence_buffer = remainder
+
+            elif chunk_type == "TOOL":
+                # Handle Tool Call (received at end of stream usually)
+                func_name, args_str = chunk_data
+                try:
+                    args = json.loads(args_str) if args_str else {}
+                    pending_tool_calls.append((func_name, args))
+                    logger.info(f"Received Tool Call: {func_name} with {args}")
+                except json.JSONDecodeError:
+                    logger.error(f"Failed to decode arguments for {func_name}: {args_str}")
+
+        # End of stream.
+        # Speak remaining text
+        remaining_text = sentence_buffer.strip()
+        if remaining_text:
+            clean_remaining = re.sub(r"\[[a-zA-Z_]+\]", "", remaining_text).strip()
+            if clean_remaining:
+                tts.speak_async(clean_remaining)
+
+        # 3. Execute Tools
+        for func_name, args in pending_tool_calls:
+            logger.info(f"Executing tool: {func_name}")
+            
+            if func_name == "stop_listening":
+                logger.info("LLM requested stop_listening. Switching to Standby.")
+                tts.wait_for_idle() 
+                self.play_goodbye_sound()
+                self.hide_vts()
+                self.is_active = False
+
+            elif func_name == "analyze_screen":
+                # Special Vision Handler - requires LLM callback
+                logger.info("Vision Tool Triggered")
+                
+                # 1. Talk while processing (User Request)
+                tts.speak_async("Hmm, dur bakalım neler varmış...")
+                
+                # 2. Capture
+                vision_skill = next((s for s in self.skills if s.name == "Vision"), None)
+                if vision_skill:
+                    b64_img = vision_skill.capture_screen()
+                    if b64_img:
+                        # 3. Analyze
+                        description = brain.analyze_image(b64_img)
+                        # 4. Speak Result
+                        tts.speak_async(description)
+                    else:
+                        tts.speak_async("Ekran görüntüsü alamadım. İzinlerimi kontrol eder misin?")
+                else:
+                    logger.error("Vision skill not found!") 
+
+            # 2. Handle Generic Skill Commands (Legacy/Route)
+            else:
+                executed = False
+                for skill in self.skills:
+                    if func_name in skill.commands:
+                        skill.execute(func_name, list(args.values()))
+                        executed = True
+                        break
+                if not executed:
+                    logger.warning(f"Unknown tool: {func_name}")
+        
+        logger.debug("Waiting for TTS to finish...")
+        tts.wait_for_idle()
 
 orchestrator = Orchestrator()

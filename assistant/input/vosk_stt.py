@@ -55,46 +55,65 @@ class VoskSTT:
             self.recognizer = KaldiRecognizer(self.model, 16000)
 
         # Open stream
-        try:
-            self.stream = self.audio.open(format=pyaudio.paInt16, channels=1, rate=16000, input=True, frames_per_buffer=4096)
-            self.stream.start_stream()
-        except Exception as e:
-            logger.error(f"Failed to open audio stream: {e}")
-            return False
-
-        logger.info(f"Listening for wake word: {keywords} (Local)")
+        import time
         
-        try:
-            while True:
-                data = self.stream.read(4096, exception_on_overflow=False)
-                if self.recognizer.AcceptWaveform(data):
-                    result = json.loads(self.recognizer.Result())
-                    text = result.get("text", "")
-                    if text:
-                        # Check keywords
-                        for keyword in keywords:
-                            if keyword in text:
-                                logger.info(f"Wake word detected: '{keyword}' in '{text}'")
-                                return True
-                else:
-                    # Partial result (faster detection)
-                    partial = json.loads(self.recognizer.PartialResult())
-                    partial_text = partial.get("partial", "")
-                    if partial_text:
-                         for keyword in keywords:
-                            if keyword in partial_text:
-                                logger.info(f"Wake word detected (partial): '{keyword}'")
-                                return True
-                                
-        except KeyboardInterrupt:
-            return False
-        except Exception as e:
-            logger.error(f"Error in Vosk listen: {e}")
-            return False
-        finally:
-            if self.stream:
-                self.stream.stop_stream()
-                self.stream.close()
-                self.stream = None
+        while True: # Outer loop for reconnection
+            try:
+                # Open stream if not open
+                if not self.stream:
+                    self.stream = self.audio.open(format=pyaudio.paInt16, channels=1, rate=16000, input=True, frames_per_buffer=4096)
+                    self.stream.start_stream()
+                    logger.info(f"Microphone stream started. Listening for: {keywords}")
+
+                while True: # Inner loop for reading
+                    data = self.stream.read(4096, exception_on_overflow=False)
+                    if self.recognizer.AcceptWaveform(data):
+                        result = json.loads(self.recognizer.Result())
+                        text = result.get("text", "")
+                        if text:
+                            for keyword in keywords:
+                                if keyword in text:
+                                    logger.info(f"Wake word detected: '{keyword}' in '{text}'")
+                                    return True
+                    else:
+                        partial = json.loads(self.recognizer.PartialResult())
+                        partial_text = partial.get("partial", "")
+                        if partial_text:
+                             for keyword in keywords:
+                                if keyword in partial_text:
+                                    logger.info(f"Wake word detected (partial): '{keyword}'")
+                                    return True
+                                    
+            except KeyboardInterrupt:
+                return False
+            except KeyError as e:
+                # Specific pyaudio error?
+                logger.error(f"Audio Stream Error: {e}. Restarting stream...")
+                if self.stream:
+                    try:
+                        self.stream.close()
+                    except Exception as close_err:
+                        logger.debug(f"Error closing stream: {close_err}")
+                    self.stream = None
+                time.sleep(1)
+            except Exception as e:
+                logger.error(f"Critical Error in Vosk listen: {e}. Restarting listener...")
+                if self.stream:
+                    try:
+                        self.stream.stop_stream()
+                        self.stream.close()
+                    except Exception as close_err:
+                        logger.debug(f"Error closing stream during recovery: {close_err}")
+                    self.stream = None
+                time.sleep(2)
+            finally:
+                # Only close completely if we are returning (e.g. success or interrupt)
+                pass 
+
+        # This part effectively never reached unless returned above
+        if self.stream:
+             self.stream.stop_stream()
+             self.stream.close()
+             self.stream = None
 
 vosk_stt = VoskSTT()

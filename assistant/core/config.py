@@ -20,14 +20,16 @@ load_dotenv(BASE_DIR / ".env")
 class Config:
     ASSETS_DIR = BASE_DIR / "assets"
     
+    # OpenAI Settings
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
     ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
     ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
-    # Default to a generic female anime voice if not specified.
-    # Users should ideally set a specific voice ID in .env
-    ELEVENLABS_VOICE_ID = os.getenv("ELEVENLABS_VOICE_ID", "fUjY9K2nAIwlALOwSiwc") # Example: Yui (default) - Replace with Animation Voice ID
-    ELEVENLABS_MODEL_ID = os.getenv("ELEVENLABS_MODEL_ID", "eleven_turbo_v2_5")
     
+    # ElevenLabs Settings
+    ELEVENLABS_VOICE_ID = os.getenv("ELEVENLABS_VOICE_ID") 
+    ELEVENLABS_MODEL_ID = os.getenv("ELEVENLABS_MODEL_ID")
+    
+    # Deepgram Settings
     DEEPGRAM_API_KEY = os.getenv("DEEPGRAM_API_KEY")
 
 
@@ -46,14 +48,41 @@ class Config:
             print(f"Error loading VTS token: {e}")
 
     MOODS_FILE_PATH = CONFIG_DIR / "moods.json"
+    SYSTEM_PROMPT_PATH = ASSETS_DIR / "system_prompt.txt" # New path for prompt
 
+    # LLM Settings
+    LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4o-mini")
+    LLM_VISION_MODEL = os.getenv("LLM_VISION_MODEL", "gpt-4o")
+    LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.7"))
+    
+    # Conversation History Limits
+    HISTORY_MAX_SIZE = int(os.getenv("HISTORY_MAX_SIZE", "20"))
+    HISTORY_KEEP_RECENT = int(os.getenv("HISTORY_KEEP_RECENT", "10"))
+    
+    # Retry Settings
+    LLM_RETRY_COUNT = int(os.getenv("LLM_RETRY_COUNT", "3"))
+    LLM_RETRY_DELAY = float(os.getenv("LLM_RETRY_DELAY", "1.0"))
     
     # Audio
     MIC_INDEX = int(os.getenv("MIC_INDEX", 0))
     
     @classmethod
     def validate(cls):
-        # Optional validation
-        pass
+        """
+        Validates critical configuration.
+        """
+        missing = []
+        if not cls.OPENAI_API_KEY:
+            missing.append("OPENAI_API_KEY")
+        
+        if missing:
+            print("WARNING: The following critical environment variables are missing:")
+            for key in missing:
+                print(f"  - {key}")
+            print("Assistant may not function correctly (Brainless Mode).")
+            
+            # Raise error if strict mode is desired
+            raise ValueError(f"Missing config: {missing}")
 
 config = Config()
+config.validate()
