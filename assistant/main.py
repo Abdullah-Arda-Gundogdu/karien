@@ -8,8 +8,6 @@ def main():
         asyncio.run(orchestrator.run())
     except KeyboardInterrupt:
         logger.info("Interrupted by user. Shutting down...")
-        # Optional: Try to say goodbye if not in critical state
-        # tts.speak("Kapatılıyorum.") 
         sys.exit(0)
     except Exception as e:
         logger.critical(f"Global Critical Error: {e}", exc_info=True)
