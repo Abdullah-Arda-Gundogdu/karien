@@ -1,5 +1,6 @@
 import asyncio
 import re
+from typing import Optional
 from assistant.core.logging_config import logger
 from assistant.input.stt import stt
 from assistant.input.vosk_stt import vosk_stt
@@ -7,10 +8,29 @@ from assistant.output.tts import tts
 from assistant.output.vts import vts
 from assistant.brain.llm import brain
 
+# Lazy load audio components to avoid import delay
+_audio_stream = None
+_vad = None
+
+def _get_audio_stream():
+    global _audio_stream
+    if _audio_stream is None:
+        from assistant.input.audio_stream import audio_stream
+        _audio_stream = audio_stream
+    return _audio_stream
+
+def _get_vad():
+    global _vad
+    if _vad is None:
+        from assistant.input.vad import vad
+        _vad = vad
+    return _vad
+
 class Orchestrator:
     def __init__(self):
         self.running = False
         self.is_active = False # Start in Standby
+        self._interrupted = False  # Track if current turn was interrupted
 
     def parse_response(self, text: str):
         """
@@ -124,6 +144,11 @@ class Orchestrator:
         
         self.running = True
         
+        # Start continuous audio capture for VAD and interruption
+        audio_stream = _get_audio_stream()
+        audio_stream.start()
+        logger.info("Audio stream started for VAD")
+        
         # Connect to VTS
         await vts.connect()
         
@@ -168,6 +193,8 @@ class Orchestrator:
                 await asyncio.sleep(3) # Breathe
         
         # Cleanup on exit
+        audio_stream = _get_audio_stream()
+        audio_stream.stop()
         await vts.close()
         logger.info("Karien stopped.")
 
@@ -242,7 +269,22 @@ class Orchestrator:
             if clean_remaining:
                 tts.speak_async(clean_remaining)
 
-        # 3. Execute Tools
+        # 3. Monitor for interruption while TTS is playing
+        # This runs concurrently and will stop TTS if user speaks
+        interrupted_audio = await self._monitor_for_interruption()
+        
+        if interrupted_audio:
+            # User interrupted! Process their speech immediately
+            logger.info("Processing interrupted speech...")
+            # Use buffered audio to capture what user said
+            user_text = await stt.listen_with_prepend(interrupted_audio)
+            if user_text:
+                logger.info(f"Interrupted with: {user_text}")
+                # Recursively handle this new input (skip tool execution)
+                await self._handle_user_input(user_text)
+            return  # Skip tool execution for interrupted turn
+
+        # 4. Execute Tools (only if not interrupted)
         for func_name, args in pending_tool_calls:
             logger.info(f"Executing tool: {func_name}")
             
@@ -288,4 +330,97 @@ class Orchestrator:
         logger.debug("Waiting for TTS to finish...")
         tts.wait_for_idle()
 
+    async def _monitor_for_interruption(self) -> Optional[bytes]:
+        """
+        Monitor for user speech while TTS is playing.
+        Returns buffered audio if interruption detected, None otherwise.
+        """
+        vad = _get_vad()
+        audio_stream = _get_audio_stream()
+        
+        consecutive_speech_frames = 0
+        required_frames = 3  # Require 3 consecutive speech frames (~150ms) to confirm interruption
+        
+        while tts.is_playing():
+            # Check VAD on recent audio
+            try:
+                recent_audio = audio_stream.get_recent(100)  # last 100ms
+                if vad.is_speech(recent_audio):
+                    consecutive_speech_frames += 1
+                    if consecutive_speech_frames >= required_frames:
+                        # Confirmed interruption!
+                        logger.info("Interruption detected - stopping TTS")
+                        tts.stop_playback()
+                        # Return full buffer to capture the interruption words
+                        return audio_stream.get_buffer()
+                else:
+                    consecutive_speech_frames = 0
+            except Exception as e:
+                logger.debug(f"Error during interruption check: {e}")
+            
+            await asyncio.sleep(0.05)  # Check every 50ms
+        
+        return None  # No interruption
+
+    async def _handle_user_input(self, user_text: str):
+        """
+        Handle user input (used for both normal turns and interruption).
+        This is the core LLM interaction without interruption monitoring.
+        """
+        logger.info("Thinking...")
+        
+        full_response_buffer = ""
+        sentence_buffer = ""
+        mood_detected = False
+        pending_tool_calls = []
+        
+        stream = brain.chat_stream(user_text)
+        
+        import json
+        
+        for chunk_type, chunk_data in stream:
+            if chunk_type == "CONTENT":
+                token = chunk_data
+                full_response_buffer += token
+                sentence_buffer += token
+                
+                if not mood_detected:
+                    mood_match = re.search(r"^\s*\[([a-zA-Z_]+)\]", full_response_buffer)
+                    if mood_match:
+                        mood = mood_match.group(1).lower()
+                        logger.info(f"Detected Mood: {mood}")
+                        await vts.trigger_mood(mood)
+                        mood_detected = True
+                        sentence_buffer = sentence_buffer.replace(mood_match.group(0), "", 1)
+
+                if re.search(r"[.!?]\s", sentence_buffer):
+                    parts = re.split(r"([.!?]\s)", sentence_buffer, 1)
+                    if len(parts) >= 2:
+                        sentence = parts[0] + parts[1] 
+                        remainder = "".join(parts[2:]) 
+                        clean_sentence = re.sub(r"\[[a-zA-Z_]+\]", "", sentence).strip()
+                        if clean_sentence:
+                            tts.speak_async(clean_sentence)
+                        sentence_buffer = remainder
+
+            elif chunk_type == "TOOL":
+                func_name, args_str = chunk_data
+                try:
+                    args = json.loads(args_str) if args_str else {}
+                    pending_tool_calls.append((func_name, args))
+                    logger.info(f"Received Tool Call: {func_name} with {args}")
+                except json.JSONDecodeError:
+                    logger.error(f"Failed to decode arguments for {func_name}: {args_str}")
+
+        # Speak remaining
+        remaining_text = sentence_buffer.strip()
+        if remaining_text:
+            clean_remaining = re.sub(r"\[[a-zA-Z_]+\]", "", remaining_text).strip()
+            if clean_remaining:
+                tts.speak_async(clean_remaining)
+        
+        # Wait for TTS (no interruption monitoring here - it's a follow-up response)
+        tts.wait_for_idle()
+
 orchestrator = Orchestrator()
+

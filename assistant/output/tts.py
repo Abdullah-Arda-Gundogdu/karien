@@ -225,6 +225,57 @@ class TextToSpeech:
         # 2. Wait for playback queue to empty
         self.queue.join()
 
+    def stop_playback(self):
+        """
+        Immediately stop current playback and clear the queue.
+        Used for interruption handling.
+        """
+        import pygame
+        
+        # Stop current playback
+        try:
+            pygame.mixer.music.stop()
+            pygame.mixer.music.unload()
+        except Exception as e:
+            logger.debug(f"Error stopping playback: {e}")
+        
+        # Clear pending items from queue
+        cleared = 0
+        while not self.queue.empty():
+            try:
+                self.queue.get_nowait()
+                self.queue.task_done()
+                cleared += 1
+            except queue.Empty:
+                break
+        
+        if cleared > 0:
+            logger.info(f"TTS interrupted, cleared {cleared} queued items")
+        else:
+            logger.info("TTS playback stopped")
+
+    def is_playing(self) -> bool:
+        """
+        Check if audio is currently playing or queued.
+        Used to detect when to listen for interruption.
+        """
+        import pygame
+        
+        # Check if music is actively playing
+        if pygame.mixer.music.get_busy():
+            return True
+        
+        # Check if there are items in the queue
+        if not self.queue.empty():
+            return True
+        
+        # Check if there are active generations
+        with self.lock:
+            if self.active_generations > 0:
+                return True
+        
+        return False
+
     def stop(self):
         self.is_running = False
         if self.playback_thread.is_alive():

@@ -15,3 +15,5 @@ pyautogui>=0.9.54
 Pillow>=10.0.0
 pycaw>=20230407;platform_system=="Windows"
 comtypes>=1.2.0;platform_system=="Windows"
+torch>=2.0.0
+torchaudio>=2.0.0

@@ -5,6 +5,16 @@ import sys
 from assistant.core.logging_config import logger
 from vosk import Model, KaldiRecognizer
 
+# Lazy import VAD to avoid circular imports and startup delay
+_vad = None
+
+def _get_vad():
+    global _vad
+    if _vad is None:
+        from assistant.input.vad import vad
+        _vad = vad
+    return _vad
+
 class VoskSTT:
     def __init__(self, model_path="assistant/input/model"):
         self.model_path = model_path
@@ -12,6 +22,7 @@ class VoskSTT:
         self.recognizer = None
         self.audio = pyaudio.PyAudio()
         self.stream = None
+        self.use_vad = True  # Enable VAD gating
         
         if not os.path.exists(self.model_path):
             logger.error(f"Vosk model not found at {self.model_path}. Please download it.")
@@ -57,6 +68,10 @@ class VoskSTT:
         # Open stream
         import time
         
+        # Get VAD for gating
+        vad = _get_vad() if self.use_vad else None
+        consecutive_silence = 0  # Track consecutive silence frames
+        
         while True: # Outer loop for reconnection
             try:
                 # Open stream if not open
@@ -67,6 +82,20 @@ class VoskSTT:
 
                 while True: # Inner loop for reading
                     data = self.stream.read(4096, exception_on_overflow=False)
+                    
+                    # VAD gating: skip processing if no speech detected
+                    if vad is not None:
+                        if not vad.is_speech(data):
+                            consecutive_silence += 1
+                            # Only log occasionally to avoid spam
+                            if consecutive_silence % 50 == 0:
+                                logger.debug(f"VAD: Silence (consecutive: {consecutive_silence})")
+                            continue
+                        else:
+                            if consecutive_silence > 0:
+                                logger.debug("VAD: Speech detected, processing...")
+                            consecutive_silence = 0
+                    
                     if self.recognizer.AcceptWaveform(data):
                         result = json.loads(self.recognizer.Result())
                         text = result.get("text", "")

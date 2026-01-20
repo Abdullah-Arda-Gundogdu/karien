@@ -66,6 +66,11 @@ class Config:
     # Audio
     MIC_INDEX = int(os.getenv("MIC_INDEX", 0))
     
+    # VAD Settings
+    VAD_THRESHOLD = float(os.getenv("VAD_THRESHOLD", "0.5"))
+    VAD_SAMPLE_RATE = int(os.getenv("VAD_SAMPLE_RATE", "16000"))
+    AUDIO_BUFFER_SECONDS = float(os.getenv("AUDIO_BUFFER_SECONDS", "2.0"))
+    
     @classmethod
     def validate(cls):
         """
