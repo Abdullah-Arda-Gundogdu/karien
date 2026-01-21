@@ -158,18 +158,18 @@ class VADVisualizer:
 def main():
     print("""
     ╔═══════════════════════════════════════════════════════════╗
-    ║           Silero VAD Real-Time Visualizer                ║
+    ║           Silero VAD Real-Time Visualizer                 ║
     ║                                                           ║
-    ║  This tool helps you tune the VAD_THRESHOLD setting.     ║
+    ║  This tool helps you tune the VAD_THRESHOLD setting.      ║
     ║  Speak into your microphone and observe:                  ║
-    ║    - The bar fills based on speech probability           ║
+    ║    - The bar fills based on speech probability            ║
     ║    - | marks the threshold                                ║
-    ║    - Green "SPEECH" when above threshold                 ║
-    ║    - Gray "silence" when below                           ║
+    ║    - Green "SPEECH" when above threshold                  ║
+    ║    - Gray "silence" when below                            ║
     ║                                                           ║
-    ║  Goal: Find a threshold where:                           ║
-    ║    - Your voice triggers SPEECH                          ║
-    ║    - TV/background noise stays in silence                ║
+    ║  Goal: Find a threshold where:                            ║
+    ║    - Your voice triggers SPEECH                           ║
+    ║    - TV/background noise stays in silence                 ║
     ╚═══════════════════════════════════════════════════════════╝
     """)
     
