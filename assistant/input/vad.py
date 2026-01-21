@@ -6,7 +6,7 @@ Cross-platform compatible (Windows, macOS, Linux).
 """
 
 import threading
-from typing import Optional
+from typing import Optional, Union
 import numpy as np
 from assistant.core.logging_config import logger
 from assistant.core.config import config
@@ -66,7 +66,7 @@ class VAD:
             self._model = _get_model()
         return self._model
     
-    def is_speech(self, audio_data: bytes | np.ndarray) -> bool:
+    def is_speech(self, audio_data: Union[bytes, np.ndarray]) -> bool:
         """
         Check if audio chunk contains speech.
         
@@ -79,7 +79,7 @@ class VAD:
         prob = self.get_speech_probability(audio_data)
         return prob >= self.threshold
     
-    def get_speech_probability(self, audio_data: bytes | np.ndarray) -> float:
+    def get_speech_probability(self, audio_data: Union[bytes, np.ndarray]) -> float:
         """
         Get speech probability for audio chunk.
         
