@@ -154,8 +154,8 @@ class DeepgramSTT:
             stop_event.set()
             try:
                 await sender_task
-            except:
-                pass
+            except Exception:
+                pass  # Sender already stopped
 
         # Cleanup Stream
         stream.stop_stream()
@@ -291,8 +291,8 @@ class DeepgramSTT:
             stop_event.set()
             try:
                 await sender_task
-            except:
-                pass
+            except Exception:
+                pass  # Sender already stopped
 
         # Cleanup
         stream.stop_stream()

@@ -68,7 +68,7 @@ class AudioStream:
         self._running = True
         self._audio = pyaudio.PyAudio()
         
-        # Get mic index from config
+        # Get mic index from config (None means use system default)
         mic_index = getattr(config, 'MIC_INDEX', None)
         
         self._stream = self._audio.open(
@@ -76,7 +76,7 @@ class AudioStream:
             channels=self.channels,
             rate=self.sample_rate,
             input=True,
-            input_device_index=mic_index if mic_index != 0 else None,
+            input_device_index=mic_index,  # None = system default, 0+ = specific device
             frames_per_buffer=self.chunk_size
         )
         

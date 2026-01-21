@@ -192,8 +192,8 @@ class Brain:
             self.history.append({"role": "assistant", "content": full_response})
             
             # Keep history manageable
-            if len(self.history) > 20:
-                self.history = [self.history[0]] + self.history[-10:]
+            if len(self.history) > config.HISTORY_MAX_SIZE:
+                self.history = [self.history[0]] + self.history[-config.HISTORY_KEEP_RECENT:]
                 
         except Exception as e:
             logger.error(f"LLM Stream Error: {e}")

@@ -2,7 +2,9 @@ import json
 import os
 import pyaudio
 import sys
+from pathlib import Path
 from assistant.core.logging_config import logger
+from assistant.core.config import BASE_DIR
 from vosk import Model, KaldiRecognizer
 
 # Lazy import VAD to avoid circular imports and startup delay
@@ -16,8 +18,9 @@ def _get_vad():
     return _vad
 
 class VoskSTT:
-    def __init__(self, model_path="assistant/input/model"):
-        self.model_path = model_path
+    def __init__(self, model_path=None):
+        # Use absolute path relative to project root
+        self.model_path = model_path or str(BASE_DIR / "assistant" / "input" / "model")
         self.model = None
         self.recognizer = None
         self.audio = pyaudio.PyAudio()
