@@ -127,6 +127,39 @@ class TextToSpeech:
         # But we do put it in the playback queue
         self.queue.put((completion_event, result_container))
 
+    def play_sound(self, name: str):
+        """
+        Play a pre-recorded sound file by name.
+        Looks for files in assets/sounds/ first, then assets/.
+        
+        Usage: tts.play_sound("error")  # plays error.mp3
+               tts.play_sound("startup.mp3")  # also works with extension
+        
+        This avoids using TTS API tokens for hardcoded messages.
+        """
+        from pathlib import Path
+        from assistant.core.config import ASSETS_DIR
+        
+        # Add .mp3 extension if not provided
+        if not name.endswith('.mp3'):
+            name = f"{name}.mp3"
+        
+        # Look in assets/sounds first, then assets
+        sounds_dir = ASSETS_DIR / "sounds"
+        candidates = [
+            sounds_dir / name,
+            ASSETS_DIR / name,
+        ]
+        
+        for path in candidates:
+            if path.exists():
+                logger.info(f"Playing sound: {path}")
+                self.play_file(str(path))
+                return
+        
+        # File not found - log warning
+        logger.warning(f"Sound file not found: {name} (searched: {[str(p) for p in candidates]})")
+
     def speak(self, text: str):
         """
         Legacy blocking speak.

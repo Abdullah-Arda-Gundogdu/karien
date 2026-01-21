@@ -1,4 +1,5 @@
 import asyncio
+import json
 import re
 from typing import Optional
 from assistant.core.logging_config import logger
@@ -57,24 +58,12 @@ class Orchestrator:
         return mood, text.strip(), cmd_tuple
 
     def play_startup_sound(self):
-        from assistant.core.config import config
-        startup_file = config.ASSETS_DIR / "startup.mp3"
-        
-        if startup_file.exists():
-            logger.info(f"Playing startup audio: {startup_file}")
-            tts.play_file(str(startup_file))
-        else:
-            tts.speak("Selam! Ben Karien! Sana nasıl yardımcı olabilirim?")
+        """Play startup sound or fallback to TTS."""
+        tts.play_sound("startup")
 
     def play_goodbye_sound(self):
-        from assistant.core.config import config
-        goodbye_file = config.ASSETS_DIR / "goodbye.mp3"
-        
-        if goodbye_file.exists():
-            logger.info(f"Playing goodbye audio: {goodbye_file}")
-            tts.play_file(str(goodbye_file))
-        else:
-            tts.speak("Görüşürüz.")
+        """Play goodbye sound or fallback to TTS."""
+        tts.play_sound("goodbye")
 
     def bring_vts_to_front(self):
         """Brings VTube Studio window to front (Cross-Platform)."""
@@ -188,7 +177,7 @@ class Orchestrator:
                     
             except Exception as e:
                 logger.error(f"Critical Error in Orchestrator Loop: {e}", exc_info=True)
-                tts.speak_async("Bir hata oluştu. Kendimi resetliyorum.")
+                tts.play_sound("error")  # Pre-recorded error message
                 self.is_active = False # Fallback to standby
                 await asyncio.sleep(3) # Breathe
         
@@ -216,8 +205,6 @@ class Orchestrator:
         
         # Start streaming
         stream = brain.chat_stream(user_text)
-        
-        import json
         
         for chunk_type, chunk_data in stream:
             if chunk_type == "CONTENT":
@@ -285,6 +272,15 @@ class Orchestrator:
             return  # Skip tool execution for interrupted turn
 
         # 4. Execute Tools (only if not interrupted)
+        await self._execute_tools(pending_tool_calls)
+        
+        logger.debug("Waiting for TTS to finish...")
+        tts.wait_for_idle()
+
+    async def _execute_tools(self, pending_tool_calls: list):
+        """
+        Execute collected tool calls. Shared logic between _run_active_turn and _handle_user_input.
+        """
         for func_name, args in pending_tool_calls:
             logger.info(f"Executing tool: {func_name}")
             
@@ -299,24 +295,24 @@ class Orchestrator:
                 # Special Vision Handler - requires LLM callback
                 logger.info("Vision Tool Triggered")
                 
-                # 1. Talk while processing (User Request)
-                tts.speak_async("Hmm, dur bakalım neler varmış...")
+                # Talk while processing
+                tts.play_sound("analyzing")  # Pre-recorded "Hmm, dur bakalım..."
                 
-                # 2. Capture
+                # Capture
                 vision_skill = next((s for s in self.skills if s.name == "Vision"), None)
                 if vision_skill:
                     b64_img = vision_skill.capture_screen()
                     if b64_img:
-                        # 3. Analyze
+                        # Analyze
                         description = brain.analyze_image(b64_img)
-                        # 4. Speak Result
+                        # Speak Result
                         tts.speak_async(description)
                     else:
-                        tts.speak_async("Ekran görüntüsü alamadım. İzinlerimi kontrol eder misin?")
+                        tts.play_sound("screenshot_error")  # Pre-recorded error
                 else:
                     logger.error("Vision skill not found!") 
 
-            # 2. Handle Generic Skill Commands (Legacy/Route)
+            # Handle Generic Skill Commands
             else:
                 executed = False
                 for skill in self.skills:
@@ -326,9 +322,6 @@ class Orchestrator:
                         break
                 if not executed:
                     logger.warning(f"Unknown tool: {func_name}")
-        
-        logger.debug("Waiting for TTS to finish...")
-        tts.wait_for_idle()
 
     async def _monitor_for_interruption(self) -> Optional[bytes]:
         """
@@ -376,8 +369,6 @@ class Orchestrator:
         
         stream = brain.chat_stream(user_text)
         
-        import json
-        
         for chunk_type, chunk_data in stream:
             if chunk_type == "CONTENT":
                 token = chunk_data
@@ -420,6 +411,12 @@ class Orchestrator:
                 tts.speak_async(clean_remaining)
         
         # Wait for TTS (no interruption monitoring here - it's a follow-up response)
+        tts.wait_for_idle()
+        
+        # Execute Tools using shared helper
+        await self._execute_tools(pending_tool_calls)
+        
+        # Wait for any additional TTS from tool execution
         tts.wait_for_idle()
 
 orchestrator = Orchestrator()
