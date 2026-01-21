@@ -1,5 +1,4 @@
 import json
-import logging
 import websockets
 from typing import Dict, Any, List, Optional
 from assistant.core.config import config
