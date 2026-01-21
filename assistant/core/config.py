@@ -48,7 +48,7 @@ class Config:
             print(f"Error loading VTS token: {e}")
 
     MOODS_FILE_PATH = CONFIG_DIR / "moods.json"
-    SYSTEM_PROMPT_PATH = ASSETS_DIR / "system_prompt.txt" # New path for prompt
+    SYSTEM_PROMPT_PATH = ASSETS_DIR / "system_prompt.txt"
 
     # LLM Settings
     LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4o-mini")
