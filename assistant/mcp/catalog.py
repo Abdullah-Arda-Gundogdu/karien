@@ -38,6 +38,25 @@ class CatalogEntry:
             tools_provided=data.get("tools_provided"),
             config_schema=data.get("config_schema"),
         )
+    
+    def requires_config(self) -> bool:
+        """Check if this MCP requires environment configuration."""
+        if not self.config_schema:
+            return False
+        env_config = self.config_schema.get("env", {})
+        return any(v.get("required", False) for v in env_config.values())
+    
+    def get_env_schema(self) -> dict:
+        """Get the environment variable schema for this MCP."""
+        if not self.config_schema:
+            return {}
+        return self.config_schema.get("env", {})
+
+    def get_validation_config(self) -> dict | None:
+        """Get validation configuration if available."""
+        if not self.config_schema:
+            return None
+        return self.config_schema.get("validation")
 
 
 class MCPCatalog:

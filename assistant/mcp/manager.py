@@ -104,7 +104,9 @@ class MCPManager:
                 logger.warning(f"Skipping MCP {mcp.id}: not compatible with {self._platform}")
                 continue
             
-            client = MCPClientWrapper(mcp.id, mcp.command, mcp.config.get("env"))
+            # Get env_keys from config (list of secret keys stored in keyring)
+            env_keys = mcp.config.get("env_keys", [])
+            client = MCPClientWrapper(mcp.id, mcp.command, mcp.config.get("env"), env_keys)
             self._clients[mcp.id] = client
             connect_tasks.append(self._connect_with_retry(client))
         
@@ -252,6 +254,9 @@ class MCPManager:
             return False
         
         # Create registry entry from catalog
+        # Store env_keys so client knows which secrets to fetch from keyring
+        env_keys = list(catalog_entry.get_env_schema().keys()) if catalog_entry.config_schema else []
+        
         entry = MCPEntry(
             id=catalog_entry.id,
             name=catalog_entry.name,
@@ -260,6 +265,7 @@ class MCPManager:
             platforms=catalog_entry.platforms,
             category=catalog_entry.category,
             enabled=True,
+            config={"env_keys": env_keys},  # Store which keys are in keyring
             tools_provided=catalog_entry.tools_provided or [],
         )
         
@@ -267,7 +273,7 @@ class MCPManager:
         
         # Connect immediately if already initialized
         if self._initialized:
-            client = MCPClientWrapper(entry.id, entry.command)
+            client = MCPClientWrapper(entry.id, entry.command, env_keys=env_keys)
             self._clients[entry.id] = client
             if await client.connect():
                 self._build_tool_mapping()

@@ -32,6 +32,203 @@ ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
 
+class MCPConfigDialog(ctk.CTkToplevel):
+    """Dialog for configuring MCP environment variables."""
+    
+    def __init__(self, master, mcp_id: str, mcp_name: str, env_schema: dict):
+        super().__init__(master)
+        
+        self.mcp_id = mcp_id
+        self.env_schema = env_schema
+        self.result = None  # Will be dict of values or None if cancelled
+        self._entries = {}
+        
+        # Window setup
+        self.title(f"Configure {mcp_name}")
+        self.geometry("400x300")
+        self.resizable(False, False)
+        self.transient(master)
+        self.grab_set()
+        
+        # Build UI
+        self._build_ui()
+        
+        # Center on parent
+        self.update_idletasks()
+        x = master.winfo_x() + (master.winfo_width() - self.winfo_width()) // 2
+        y = master.winfo_y() + (master.winfo_height() - self.winfo_height()) // 2
+        self.geometry(f"+{x}+{y}")
+    
+    def _build_ui(self):
+        """Build the dialog UI."""
+        # Main container
+        self.main_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.main_frame.pack(fill="both", expand=True, padx=20, pady=20)
+        
+        # Title
+        ctk.CTkLabel(
+            self.main_frame,
+            text="Configuration Required",
+            font=ctk.CTkFont(size=18, weight="bold")
+        ).pack(anchor="w", pady=(0, 15))
+        
+        # Create fields for each env var
+        for key, schema in self.env_schema.items():
+            frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
+            frame.pack(fill="x", pady=5)
+            
+            label_text = schema.get("label", key)
+            if schema.get("required"):
+                label_text += " *"
+            
+            ctk.CTkLabel(
+                frame,
+                text=label_text,
+                font=ctk.CTkFont(size=13)
+            ).pack(anchor="w")
+            
+            # Description if available
+            if schema.get("description"):
+                ctk.CTkLabel(
+                    frame,
+                    text=schema["description"],
+                    font=ctk.CTkFont(size=11),
+                    text_color="#6b7280"
+                ).pack(anchor="w")
+            
+            # Entry field (password if secret)
+            entry = ctk.CTkEntry(
+                frame,
+                width=350,
+                show="•" if schema.get("secret") else ""
+            )
+            entry.pack(fill="x", pady=(5, 0))
+            self._entries[key] = entry
+        
+        # Status label for test results
+        self.status_label = ctk.CTkLabel(
+            self.main_frame,
+            text="",
+            font=ctk.CTkFont(size=12),
+            text_color="#9ca3af"
+        )
+        self.status_label.pack(anchor="w", pady=(10, 0))
+        
+        # Buttons
+        btn_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
+        btn_frame.pack(fill="x", pady=(10, 0))
+        
+        ctk.CTkButton(
+            btn_frame,
+            text="Cancel",
+            width=80,
+            fg_color="#4b5563",
+            hover_color="#374151",
+            command=self._on_cancel
+        ).pack(side="left")
+        
+        self.save_btn = ctk.CTkButton(
+            btn_frame,
+            text="Test & Save",
+            width=100,
+            command=self._on_test_and_save
+        )
+        self.save_btn.pack(side="right")
+    
+    def _on_test_and_save(self):
+        """Test connection and save if successful."""
+        from assistant.mcp.secrets_manager import secrets_manager
+        from assistant.mcp.client import MCPClientWrapper
+        from assistant.mcp.catalog import MCPCatalog
+        from assistant.core.config import config
+        
+        # Validate required fields
+        for key, schema in self.env_schema.items():
+            value = self._entries[key].get().strip()
+            if schema.get("required") and not value:
+                self._entries[key].configure(border_color="#dc2626")
+                self.status_label.configure(text="❌ Please fill required fields", text_color="#dc2626")
+                return
+        
+        # Temporarily save to keyring for testing
+        env_keys = []
+        for key, entry in self._entries.items():
+            value = entry.get().strip()
+            if value:
+                secrets_manager.set(self.mcp_id, key, value)
+                env_keys.append(key)
+        
+        # Test connection
+        self.status_label.configure(text="⏳ Testing connection...", text_color="#f59e0b")
+        self.update()
+        
+        async def test_connection():
+            catalog = MCPCatalog(config.MCP_CATALOG_PATH)
+            catalog_entry = catalog.get(self.mcp_id)
+            if not catalog_entry:
+                return False, "MCP not found in catalog"
+            
+            client = MCPClientWrapper(
+                self.mcp_id, 
+                catalog_entry.command,
+                env_keys=env_keys
+            )
+            try:
+                success = await client.connect(timeout=15.0)
+                if not success:
+                    return False, "Failed to start MCP process"
+                
+                # Check 1: Tool list found
+                if len(client.tools) == 0:
+                    await client.disconnect()
+                    return False, "No tools found (check logs)"
+
+                # Check 2: Verify Auth if configured
+                validation_config = catalog_entry.get_validation_config()
+                if validation_config:
+                    try:
+                        tool_name = validation_config["tool"]
+                        tool_args = validation_config.get("args", {})
+                        
+                        self.status_label.configure(text=f"⏳ Verifying with {tool_name}...", text_color="#f59e0b")
+                        self.update()
+                        
+                        await client.call_tool(tool_name, tool_args)
+                    except Exception as e:
+                        await client.disconnect()
+                        return False, "Authentication failed! Check your token."
+                
+                await client.disconnect()
+                return True, f"Verified! Found {len(client.tools)} tools"
+            except Exception as e:
+                if client.is_connected:
+                    await client.disconnect()
+                return False, str(e)
+        
+        import asyncio
+        success, message = asyncio.run(test_connection())
+        
+        if success:
+            self.status_label.configure(text=f"✅ {message}", text_color="#22c55e")
+            self.result = {key: entry.get().strip() for key, entry in self._entries.items() if entry.get().strip()}
+            self.after(1000, self.destroy)  # Close after 1 second
+        else:
+            self.status_label.configure(text=f"❌ {message}", text_color="#dc2626")
+            # Clean up failed secrets
+            for key in env_keys:
+                secrets_manager.delete(self.mcp_id, key)
+    
+    def _on_cancel(self):
+        """Cancel configuration."""
+        self.result = None
+        self.destroy()
+    
+    def get_result(self) -> dict | None:
+        """Wait for dialog and return result."""
+        self.wait_window()
+        return self.result
+
+
 class MCPCard(ctk.CTkFrame):
     """Card component displaying a single MCP with actions."""
     
@@ -281,6 +478,20 @@ class MCPSettingsWindow(ctk.CTk):
     
     def _handle_install(self, mcp_id: str):
         """Handle MCP installation."""
+        # Check if MCP requires configuration
+        catalog_entry = mcp_manager._catalog.get(mcp_id)
+        
+        if catalog_entry and catalog_entry.requires_config():
+            # Show config dialog
+            env_schema = catalog_entry.get_env_schema()
+            dialog = MCPConfigDialog(self, mcp_id, catalog_entry.name, env_schema)
+            result = dialog.get_result()
+            
+            if result is None:
+                # User cancelled
+                return
+        
+        # Proceed with installation
         async def do_install():
             success = await mcp_manager.install_from_catalog(mcp_id)
             if success:
@@ -290,6 +501,15 @@ class MCPSettingsWindow(ctk.CTk):
     
     def _handle_uninstall(self, mcp_id: str):
         """Handle MCP uninstallation."""
+        from assistant.mcp.secrets_manager import secrets_manager
+        
+        # Clean up secrets from keyring
+        catalog_entry = mcp_manager._catalog.get(mcp_id)
+        if catalog_entry:
+            env_keys = list(catalog_entry.get_env_schema().keys())
+            if env_keys:
+                secrets_manager.delete_all(mcp_id, env_keys)
+        
         async def do_uninstall():
             success = await mcp_manager.uninstall(mcp_id)
             if success:

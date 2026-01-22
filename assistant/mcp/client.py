@@ -54,10 +54,11 @@ class MCPClientWrapper:
     - Executing tool calls
     """
     
-    def __init__(self, mcp_id: str, command: str, env: dict = None):
+    def __init__(self, mcp_id: str, command: str, env: dict = None, env_keys: list = None):
         self.mcp_id = mcp_id
         self.command = command
         self.env = env or {}
+        self.env_keys = env_keys or []  # List of secret keys stored in keyring
         
         self._session: Optional[ClientSession] = None
         self._tools: list[MCPTool] = []
@@ -116,10 +117,33 @@ class MCPClientWrapper:
                         logger.debug(f"Resolved npx to {npx_cmd}")
             
             # Create server parameters
+            # Merge OS environment with custom env and secrets
+            import os
+            from assistant.mcp.secrets_manager import secrets_manager
+            
+            merged_env = {**os.environ}  # Start with OS environment
+            
+            # Add secrets from keyring for this MCP
+            if self.env:
+                # Get secret keys that should be fetched from keyring
+                for key, value in self.env.items():
+                    if value:  # If value provided directly, use it
+                        merged_env[key] = value
+                    else:  # Otherwise try to get from secrets
+                        secret = secrets_manager.get(self.mcp_id, key)
+                        if secret:
+                            merged_env[key] = secret
+            
+            # Fetch secrets from keyring for configured env keys
+            for env_key in self.env_keys:
+                secret = secrets_manager.get(self.mcp_id, env_key)
+                if secret and env_key not in merged_env:
+                    merged_env[env_key] = secret
+            
             server_params = StdioServerParameters(
                 command=executable,
                 args=args,
-                env=self.env if self.env else None,
+                env=merged_env,
             )
             
             # Connect with timeout

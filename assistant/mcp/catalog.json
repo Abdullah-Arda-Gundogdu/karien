@@ -60,6 +60,35 @@
             ],
             "category": "memory",
             "recommended": false
+        },
+        {
+            "id": "github",
+            "name": "GitHub",
+            "description": "Interact with GitHub repositories, issues, and pull requests",
+            "command": "npx -y @modelcontextprotocol/server-github",
+            "platforms": [
+                "windows",
+                "darwin"
+            ],
+            "category": "development",
+            "recommended": true,
+            "config_schema": {
+                "env": {
+                    "GITHUB_PERSONAL_ACCESS_TOKEN": {
+                        "label": "Personal Access Token",
+                        "description": "Create at github.com/settings/tokens",
+                        "type": "string",
+                        "required": true,
+                        "secret": true
+                    }
+                },
+                "validation": {
+                    "tool": "search_repositories",
+                    "args": {
+                        "query": "test-auth-validation"
+                    }
+                }
+            }
         }
     ]
 }

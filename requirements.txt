@@ -19,3 +19,4 @@ torch>=2.0.0
 torchaudio>=2.0.0
 mcp>=1.0.0
 customtkinter>=5.2.0
+keyring>=24.0.0
