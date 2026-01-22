@@ -56,6 +56,49 @@ class Brain:
         except Exception as e:
             logger.error(f"LLM Error: {e}")
             return "[SAD] Something went wrong in my head..."
+    
+    def _get_all_tools(self) -> list[dict]:
+        """
+        Get all available tools: MCP tools + internal Karien-only tools.
+        
+        Internal tools are Karien-specific and always available:
+        - stop_listening: Puts Karien to standby
+        - analyze_screen: Uses vision to read screen content
+        
+        Other tools come from enabled MCP servers.
+        """
+        # Start with internal Karien-only tools
+        internal_tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": "stop_listening",
+                    "description": "Stops the assistant and says goodbye. Use ONLY when user explicitly says goodbye.",
+                    "parameters": {"type": "object", "properties": {}},
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "analyze_screen",
+                    "description": "Takes a screenshot and analyzes what is on the user's screen. Use this when user asks 'Look at this', 'What is on my screen?', 'Read this error'.",
+                    "parameters": {"type": "object", "properties": {}},
+                }
+            },
+        ]
+        
+        # Get MCP tools (if MCP manager is initialized)
+        try:
+            from assistant.mcp.manager import mcp_manager
+            mcp_tools = mcp_manager.get_all_tools()
+            logger.debug(f"Got {len(mcp_tools)} tools from MCP manager")
+        except Exception as e:
+            logger.warning(f"Could not get MCP tools: {e}")
+            mcp_tools = []
+        
+        # Merge: MCP tools first, then internal tools
+        all_tools = mcp_tools + internal_tools
+        return all_tools
 
     def chat_stream(self, user_text: str):
         """
@@ -74,75 +117,8 @@ class Brain:
         full_response = ""
         tool_calls = [] # Accumulate tool calls
         
-        # Tools Definition
-        tools = [
-            {
-                "type": "function",
-                "function": {
-                    "name": "open_app",
-                    "description": "Opens a desktop application.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "app_name": {"type": "string", "description": "The name of the application to open (e.g. Spotify, Chrome)."},
-                        },
-                        "required": ["app_name"],
-                    },
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "close_app",
-                    "description": "Closes a desktop application.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "app_name": {"type": "string", "description": "The name of the application to close."},
-                        },
-                        "required": ["app_name"],
-                    },
-                }
-            },
-             {
-                "type": "function",
-                "function": {
-                    "name": "stop_listening",
-                    "description": "Stops the assistant and says goodbye. Use ONLY when user explicitly says goodbye.",
-                    "parameters": {"type": "object", "properties": {}},
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "analyze_screen",
-                    "description": "Takes a screenshot and analyzes what is on the user's screen. Use this when user asks 'Look at this', 'What is on my screen?', 'Read this error'.",
-                    "parameters": {"type": "object", "properties": {}},
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "take_screenshot",
-                    "description": "Takes a screenshot and saves it to the desktop. Use when user wants to save what's on screen.",
-                    "parameters": {"type": "object", "properties": {}},
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "set_volume",
-                    "description": "Sets the system volume level.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "volume": {"type": "integer", "description": "Volume level from 0 to 100."},
-                        },
-                        "required": ["volume"],
-                    },
-                }
-            },
-        ]
+        # Build tools list: MCP tools + internal Karien-only tools
+        tools = self._get_all_tools()
 
         try:
             # Simple Retry Logic

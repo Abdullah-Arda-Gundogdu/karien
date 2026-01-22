@@ -141,6 +141,10 @@ class Orchestrator:
         # Connect to VTS
         await vts.connect()
         
+        # Initialize MCP servers in background (non-blocking)
+        from assistant.mcp.manager import mcp_manager
+        asyncio.create_task(mcp_manager.initialize())
+        
         # NOTE: We don't play startup sound at very beginning anymore, 
         # we wait for "Hey Karien".
         # Or should we play it once to say "I'm ready"?
@@ -184,6 +188,11 @@ class Orchestrator:
         # Cleanup on exit
         audio_stream = _get_audio_stream()
         audio_stream.stop()
+        
+        # Shutdown MCP servers
+        from assistant.mcp.manager import mcp_manager
+        await mcp_manager.shutdown()
+        
         await vts.close()
         logger.info("Karien stopped.")
 
@@ -279,10 +288,18 @@ class Orchestrator:
 
     async def _execute_tools(self, pending_tool_calls: list):
         """
-        Execute collected tool calls. Shared logic between _run_active_turn and _handle_user_input.
+        Execute collected tool calls. Routes through MCP manager with fallback to internal tools.
+        
+        Strategy:
+        1. Internal tools (stop_listening, analyze_screen) are handled directly
+        2. Other tools go through MCP manager (which has its own fallback)
         """
+        from assistant.mcp.manager import mcp_manager
+        
         for func_name, args in pending_tool_calls:
             logger.info(f"Executing tool: {func_name}")
+            
+            # === Internal Tools (Karien-specific, always handled here) ===
             
             if func_name == "stop_listening":
                 logger.info("LLM requested stop_listening. Switching to Standby.")
@@ -290,8 +307,9 @@ class Orchestrator:
                 self.play_goodbye_sound()
                 self.hide_vts()
                 self.is_active = False
+                continue
 
-            elif func_name == "analyze_screen":
+            if func_name == "analyze_screen":
                 # Special Vision Handler - requires LLM callback
                 logger.info("Vision Tool Triggered")
                 
@@ -310,18 +328,37 @@ class Orchestrator:
                     else:
                         tts.play_sound("screenshot_error")  # Pre-recorded error
                 else:
-                    logger.error("Vision skill not found!") 
-
-            # Handle Generic Skill Commands
-            else:
-                executed = False
-                for skill in self.skills:
-                    if func_name in skill.commands:
-                        skill.execute(func_name, list(args.values()))
-                        executed = True
-                        break
-                if not executed:
-                    logger.warning(f"Unknown tool: {func_name}")
+                    logger.error("Vision skill not found!")
+                continue
+            
+            # === MCP Tools (with fallback to internal skills) ===
+            
+            if mcp_manager.has_tool(func_name):
+                try:
+                    result = await mcp_manager.execute_tool(func_name, args)
+                    if isinstance(result, dict) and result.get("error"):
+                        logger.warning(f"MCP tool {func_name} returned error: {result.get('message')}")
+                        # Notify user about the error
+                        tts.speak_async(f"Sorry, I couldn't execute {func_name}.")
+                    else:
+                        logger.info(f"MCP tool {func_name} executed successfully")
+                    continue
+                except Exception as e:
+                    logger.error(f"MCP tool execution failed: {e}")
+                    # Fall through to skill execution
+            
+            # === Legacy Skill Fallback ===
+            
+            executed = False
+            for skill in self.skills:
+                if func_name in skill.commands:
+                    skill.execute(func_name, list(args.values()))
+                    executed = True
+                    break
+            
+            if not executed:
+                logger.warning(f"Unknown tool: {func_name}")
+                tts.speak_async(f"I don't know how to do {func_name} yet.")
 
     async def _monitor_for_interruption(self) -> Optional[bytes]:
         """

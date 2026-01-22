@@ -71,6 +71,12 @@ class Config:
     VAD_SAMPLE_RATE = int(os.getenv("VAD_SAMPLE_RATE", "16000"))
     AUDIO_BUFFER_SECONDS = float(os.getenv("AUDIO_BUFFER_SECONDS", "2.0"))
     
+    # MCP Settings
+    MCP_REGISTRY_PATH = CONFIG_DIR / "mcp_registry.json"
+    MCP_CATALOG_PATH = BASE_DIR / "assistant" / "mcp" / "catalog.json"
+    MCP_STARTUP_TIMEOUT = float(os.getenv("MCP_STARTUP_TIMEOUT", "30.0"))
+    MCP_TOOL_TIMEOUT = float(os.getenv("MCP_TOOL_TIMEOUT", "60.0"))
+    
     @classmethod
     def validate(cls):
         """

@@ -17,3 +17,4 @@ pycaw>=20230407;platform_system=="Windows"
 comtypes>=1.2.0;platform_system=="Windows"
 torch>=2.0.0
 torchaudio>=2.0.0
+mcp>=1.0.0
