@@ -5,7 +5,7 @@
             "name": "Desktop Automation",
             "description": "Control mouse, keyboard, windows, and take screenshots",
             "command": "npx -y @anthropic/mcp-desktop",
-            "platform": [
+            "platforms": [
                 "windows",
                 "darwin"
             ],
@@ -24,12 +24,12 @@
             "name": "Filesystem",
             "description": "Read and write files with configurable access",
             "command": "npx -y @modelcontextprotocol/server-filesystem .",
-            "platform": [
+            "platforms": [
                 "windows",
                 "darwin"
             ],
             "category": "filesystem",
-            "recommended": false,
+            "recommended": true,
             "config_schema": {
                 "allowed_paths": {
                     "type": "array",
@@ -42,7 +42,7 @@
             "name": "Web Fetch",
             "description": "Fetch web content for LLM consumption",
             "command": "npx -y @modelcontextprotocol/server-fetch",
-            "platform": [
+            "platforms": [
                 "windows",
                 "darwin"
             ],
@@ -54,23 +54,11 @@
             "name": "Memory (Knowledge Graph)",
             "description": "Persistent memory using knowledge graph",
             "command": "npx -y @modelcontextprotocol/server-memory",
-            "platform": [
+            "platforms": [
                 "windows",
                 "darwin"
             ],
             "category": "memory",
-            "recommended": false
-        },
-        {
-            "id": "time",
-            "name": "Time & Timezone",
-            "description": "Get current time and convert between timezones",
-            "command": "npx -y @modelcontextprotocol/server-time",
-            "platform": [
-                "windows",
-                "darwin"
-            ],
-            "category": "utility",
             "recommended": false
         }
     ]

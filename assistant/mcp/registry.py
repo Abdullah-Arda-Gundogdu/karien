@@ -58,7 +58,7 @@ class MCPRegistry:
         self._load()
     
     def _load(self) -> None:
-        """Load registry from disk."""
+        """Load registry from disk, or create from template if missing."""
         if self.registry_path.exists():
             try:
                 data = json.loads(self.registry_path.read_text(encoding="utf-8"))
@@ -70,7 +70,17 @@ class MCPRegistry:
                 logger.error(f"Failed to load MCP registry: {e}")
                 self._entries = {}
         else:
-            logger.info("No existing MCP registry found, starting fresh")
+            # Try to copy from template
+            template_path = self.registry_path.parent / "mcp_registry.example.json"
+            if template_path.exists():
+                import shutil
+                self.registry_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy(template_path, self.registry_path)
+                logger.info("Created MCP registry from template")
+            else:
+                # Create empty registry
+                self._save()
+                logger.info("Created empty MCP registry")
     
     def _save(self) -> None:
         """Persist registry to disk."""

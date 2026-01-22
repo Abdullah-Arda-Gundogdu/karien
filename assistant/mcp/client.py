@@ -9,6 +9,7 @@ Wraps the MCP Python SDK to provide:
 """
 
 import asyncio
+import platform
 from typing import Any, Optional
 from dataclasses import dataclass, field
 from assistant.core.logging_config import logger
@@ -97,6 +98,22 @@ class MCPClientWrapper:
             parts = self.command.split()
             executable = parts[0]
             args = parts[1:] if len(parts) > 1 else []
+            
+            # Resolve executable path (important for Windows npx -> npx.cmd)
+            import shutil
+            resolved_path = shutil.which(executable)
+            if resolved_path:
+                executable = resolved_path
+                logger.debug(f"Resolved command {parts[0]} to {resolved_path}")
+            elif not MCP_AVAILABLE: # Just in case check
+                pass
+            else:
+                # If not found, explicitly check for npx.cmd on Windows as fallback
+                if platform.system() == "Windows" and executable == "npx":
+                    npx_cmd = shutil.which("npx.cmd")
+                    if npx_cmd:
+                        executable = npx_cmd
+                        logger.debug(f"Resolved npx to {npx_cmd}")
             
             # Create server parameters
             server_params = StdioServerParameters(
@@ -201,11 +218,25 @@ class MCPClientWrapper:
         """Clean up session and client contexts."""
         try:
             if self._session_context:
-                await self._session_context.__aexit__(None, None, None)
+                # We need to be careful with context exit order and task cancellation
+                try:
+                    await self._session_context.__aexit__(None, None, None)
+                except Exception as e:
+                    logger.debug(f"Session context exit: {e}")
                 self._session_context = None
+                
             if self._client_context:
-                await self._client_context.__aexit__(None, None, None)
+                try:
+                    await self._client_context.__aexit__(None, None, None)
+                except RuntimeError as re:
+                    # Ignore 'Attempted to exit cancel scope' error which happens frequently
+                    # with anyio/asyncio interop during shutdown
+                    if "cancel scope" not in str(re):
+                        logger.warning(f"Client context runtime error: {re}")
+                except Exception as e:
+                    logger.debug(f"Client context exit: {e}")
                 self._client_context = None
+                
             self._session = None
         except Exception as e:
             logger.warning(f"Error during MCP cleanup: {e}")
