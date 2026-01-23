@@ -143,6 +143,7 @@ class Orchestrator:
         
         # Initialize MCP servers in background (non-blocking)
         from assistant.mcp.manager import mcp_manager
+        mcp_manager.register_google_tools()  # Register Google tools as internal tools
         asyncio.create_task(mcp_manager.initialize())
         
         # NOTE: We don't play startup sound at very beginning anymore, 

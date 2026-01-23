@@ -76,6 +76,29 @@ class MCPManager:
         self._internal_tools[name] = handler
         logger.debug(f"Registered internal tool: {name}")
     
+    def register_google_tools(self) -> None:
+        """
+        Register Google API tools (Gmail, Calendar) as internal tools.
+        
+        These are sync functions that work without MCP servers.
+        Called during app initialization.
+        """
+        from assistant.mcp.google_mcp import list_recent_emails, add_calendar_event
+        
+        self.register_internal_tool("list_recent_emails", list_recent_emails)
+        self.register_internal_tool("add_calendar_event", add_calendar_event)
+        logger.info("Registered Google tools as internal tools")
+    
+    def get_internal_tool_definitions(self) -> list[dict]:
+        """
+        Get OpenAI-format tool definitions for internal tools.
+        
+        Returns:
+            List of tool definitions in OpenAI function calling format
+        """
+        from assistant.mcp.google_mcp import get_google_tools_definitions
+        return get_google_tools_definitions()
+    
     async def initialize(self) -> None:
         """
         Initialize all enabled MCPs.
@@ -143,17 +166,21 @@ class MCPManager:
         """
         Get all available tools in OpenAI function calling format.
         
-        Aggregates tools from all connected MCPs.
+        Aggregates tools from all connected MCPs plus internal tools.
         
         Returns:
             List of tool definitions in OpenAI format
         """
         tools = []
         
+        # Add MCP tools
         for client in self._clients.values():
             if client.is_connected:
                 for tool in client.tools:
                     tools.append(tool.to_openai_format())
+        
+        # Add internal tool definitions (Google, etc.)
+        tools.extend(self.get_internal_tool_definitions())
         
         return tools
     
