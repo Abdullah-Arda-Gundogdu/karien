@@ -1,4 +1,3 @@
-import pyttsx3
 from assistant.core.logging_config import logger
 from assistant.core.config import config
 

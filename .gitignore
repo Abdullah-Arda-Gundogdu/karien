@@ -11,3 +11,4 @@ config/mcp_registry.json
 # Google Auth Secrets
 assistant/core/auth/client_secret_google.json
 assistant/core/auth/token.json
+/.vscode
