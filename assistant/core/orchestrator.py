@@ -60,6 +60,7 @@ class Orchestrator:
     def play_startup_sound(self):
         """Play startup sound or fallback to TTS."""
         tts.play_sound("startup")
+        tts.wait_for_idle()  # Wait for sound to finish before STT starts
 
     def play_goodbye_sound(self):
         """Play goodbye sound or fallback to TTS."""
@@ -143,6 +144,7 @@ class Orchestrator:
         
         # Initialize MCP servers in background (non-blocking)
         from assistant.mcp.manager import mcp_manager
+        mcp_manager.register_google_tools()  # Register Google tools as internal tools
         asyncio.create_task(mcp_manager.initialize())
         
         # NOTE: We don't play startup sound at very beginning anymore, 

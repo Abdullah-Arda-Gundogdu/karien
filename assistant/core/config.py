@@ -64,7 +64,9 @@ class Config:
     LLM_RETRY_DELAY = float(os.getenv("LLM_RETRY_DELAY", "1.0"))
     
     # Audio
-    MIC_INDEX = int(os.getenv("MIC_INDEX", 0))
+    # Audio
+    _mic_env = os.getenv("MIC_INDEX")
+    MIC_INDEX = int(_mic_env) if _mic_env is not None and _mic_env.strip() else None
     
     # VAD Settings
     VAD_THRESHOLD = float(os.getenv("VAD_THRESHOLD", "0.5"))

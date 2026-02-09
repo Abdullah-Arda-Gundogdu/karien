@@ -44,10 +44,21 @@ class VoskSTT:
             except Exception as e:
                 logger.error(f"Failed to load Vosk model: {e}")
 
-    def listen_for_wakeword(self, keywords: list[str], timeout: int = None) -> bool:
+    def _cleanup_stream(self):
+        """Properly close the audio stream."""
+        if self.stream:
+            try:
+                self.stream.stop_stream()
+                self.stream.close()
+            except Exception as e:
+                logger.debug(f"Error closing stream: {e}")
+            self.stream = None
+
+    def listen_for_wakeword(self, keywords: list[str]) -> bool:
         """
         Listens for any of the keywords.
-        Returns True if detected, False if timeout or error.
+        Runs continuously until wake word is detected.
+        Returns True if detected, False on error.
         keywords: list of lowercase strings e.g. ["hey karien"]
         """
         if not self.model:
@@ -106,17 +117,20 @@ class VoskSTT:
                             for keyword in keywords:
                                 if keyword in text:
                                     logger.info(f"Wake word detected: '{keyword}' in '{text}'")
+                                    self._cleanup_stream()
                                     return True
                     else:
                         partial = json.loads(self.recognizer.PartialResult())
                         partial_text = partial.get("partial", "")
                         if partial_text:
-                             for keyword in keywords:
+                            for keyword in keywords:
                                 if keyword in partial_text:
                                     logger.info(f"Wake word detected (partial): '{keyword}'")
+                                    self._cleanup_stream()
                                     return True
                                     
             except KeyboardInterrupt:
+                self._cleanup_stream()
                 return False
             except KeyError as e:
                 # Specific pyaudio error?
@@ -138,14 +152,5 @@ class VoskSTT:
                         logger.debug(f"Error closing stream during recovery: {close_err}")
                     self.stream = None
                 time.sleep(2)
-            finally:
-                # Only close completely if we are returning (e.g. success or interrupt)
-                pass 
-
-        # This part effectively never reached unless returned above
-        if self.stream:
-             self.stream.stop_stream()
-             self.stream.close()
-             self.stream = None
 
 vosk_stt = VoskSTT()

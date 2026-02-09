@@ -35,7 +35,7 @@ class DeepgramSTT:
         
         self.audio = pyaudio.PyAudio()
         self.client = AsyncDeepgramClient(api_key=self.api_key) if self.api_key else None
-        self.use_vad = True  # Enable VAD filtering
+        self.use_vad = False  # Disable local VAD - Deepgram has its own
         
         # Stats for debugging
         self._vad_filtered_count = 0
@@ -85,6 +85,7 @@ class DeepgramSTT:
         ) as socket:
             
             async def sender():
+                chunks_sent = 0
                 try:
                     while not stop_event.is_set():
                         data = await asyncio.to_thread(stream.read, self.chunk, exception_on_overflow=False)
@@ -98,14 +99,25 @@ class DeepgramSTT:
                             self._vad_passed_count += 1
                         
                         await socket.send_media(data)
+                        chunks_sent += 1
+                        if chunks_sent % 50 == 0:  # Log every 50 chunks (~3 seconds)
+                            logger.debug(f"Sent {chunks_sent} audio chunks to Deepgram")
                         await asyncio.sleep(0.001)
                 except Exception as e:
                     logger.error(f"Sender error: {e}")
+                finally:
+                    logger.info(f"Sender finished. Total chunks sent: {chunks_sent}")
 
             async def receiver():
                 nonlocal transcript_result
+                last_interim = ""  # Track last interim result for fallback
+                message_count = 0
                 try:
                     async for message in socket:
+                        message_count += 1
+                        msg_type = getattr(message, 'type', 'unknown')
+                        logger.debug(f"Received message #{message_count}: type={msg_type}")
+                        
                         # Process Transcript/Metadata
                         if hasattr(message, 'channel'):
                              # message.channel seems to be a list in this SDK version
@@ -122,15 +134,22 @@ class DeepgramSTT:
                                              transcript_result += f" {transcript}"
                                              # Print final part of this utterance
                                              print(f"\rUser: {transcript_result.strip()}", end="", flush=True)
+                                             logger.info(f"Final transcript received: {transcript}")
                                              stop_event.set()
                                              return
                                          else:
+                                             # Track interim for fallback
+                                             last_interim = transcript
                                              # Print interim
                                              print(f"\rUser: {transcript_result.strip()} {transcript}...", end="", flush=True)
                         
                         # Process UtteranceEnd
-                        msg_type = getattr(message, 'type', '')
                         if msg_type == 'UtteranceEnd':
+                            logger.info(f"UtteranceEnd received. Interim fallback: '{last_interim}'")
+                            # Use last interim as fallback if we have no final transcript yet
+                            if not transcript_result.strip() and last_interim:
+                                transcript_result = last_interim
+                                logger.info(f"Using interim as result: {last_interim}")
                             stop_event.set()
                             return
 
@@ -139,23 +158,34 @@ class DeepgramSTT:
 
                 except Exception as e:
                     logger.error(f"Receiver error: {e}")
+                finally:
+                    logger.info(f"Receiver finished. Messages: {message_count}, Result: '{transcript_result.strip()}'")
 
-            # Run both
+            # Run both in parallel
             sender_task = asyncio.create_task(sender())
             receiver_task = asyncio.create_task(receiver())
             
             try:
-                await asyncio.wait_for(receiver_task, timeout=timeout)
+                # Wait for both with timeout
+                await asyncio.wait_for(
+                    asyncio.gather(sender_task, receiver_task, return_exceptions=True),
+                    timeout=timeout
+                )
             except asyncio.TimeoutError:
-                pass
+                logger.warning(f"Listen timeout after {timeout}s")
             except Exception as e:
                 logger.error(f"Listen loop error: {e}")
             
             stop_event.set()
-            try:
-                await sender_task
-            except Exception:
-                pass  # Sender already stopped
+            
+            # Cancel any remaining tasks
+            for task in [sender_task, receiver_task]:
+                if not task.done():
+                    task.cancel()
+                    try:
+                        await task
+                    except (asyncio.CancelledError, Exception):
+                        pass
 
         # Cleanup Stream
         stream.stop_stream()

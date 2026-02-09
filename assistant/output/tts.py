@@ -1,4 +1,3 @@
-import pyttsx3
 from assistant.core.logging_config import logger
 from assistant.core.config import config
 
@@ -90,14 +89,16 @@ class TextToSpeech:
                         while pygame.mixer.music.get_busy():
                             pygame.time.Clock().tick(10)
                             
-                        # Unload to release file lock so we can delete it
+                        # Unload to release file lock
                         pygame.mixer.music.unload()
 
-                        try:
-                            Path(audio_file_path).unlink(missing_ok=True)
-                            logger.debug(f"Deleted temp audio: {audio_file_path}")
-                        except Exception as e:
-                            logger.warning(f"Failed to delete temp audio {audio_file_path}: {e}")
+                        # Only delete temporary files (TTS-generated), not permanent sound assets
+                        if result_container.get('is_temp', False):
+                            try:
+                                Path(audio_file_path).unlink(missing_ok=True)
+                                logger.debug(f"Deleted temp audio: {audio_file_path}")
+                            except Exception as e:
+                                logger.warning(f"Failed to delete temp audio {audio_file_path}: {e}")
                             
                     except Exception as e:
                         logger.error(f"Pygame Playback Error: {e}")
@@ -231,8 +232,9 @@ class TextToSpeech:
                 )
                 response.stream_to_file(temp_file)
 
-            # Set result
+            # Set result and mark as temporary (should be deleted after playback)
             result_container['path'] = temp_file
+            result_container['is_temp'] = True
             
         except Exception as e:
             logger.error(f"TTS Generation Error ({self.provider}): {e}")

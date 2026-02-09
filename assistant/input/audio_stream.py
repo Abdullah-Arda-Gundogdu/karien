@@ -141,14 +141,12 @@ class AudioStream:
         num_samples = int(self.sample_rate * duration_ms / 1000)
         
         with self._buffer_lock:
-            if len(self._buffer) < num_samples:
-                samples = np.array(self._buffer, dtype=np.int16)
+            # Convert deque to list once, then slice (more efficient than index iteration)
+            buffer_list = list(self._buffer)
+            if len(buffer_list) < num_samples:
+                samples = np.array(buffer_list, dtype=np.int16)
             else:
-                # Get last N samples
-                samples = np.array(
-                    [self._buffer[i] for i in range(len(self._buffer) - num_samples, len(self._buffer))],
-                    dtype=np.int16
-                )
+                samples = np.array(buffer_list[-num_samples:], dtype=np.int16)
         return samples.tobytes()
     
     def get_recent_float(self, duration_ms: int = 100) -> np.ndarray:

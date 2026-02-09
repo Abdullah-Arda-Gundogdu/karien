@@ -1,4 +1,6 @@
 import time
+import json
+import asyncio
 from openai import OpenAI
 from assistant.core.config import config
 from assistant.core.logging_config import logger
@@ -24,6 +26,10 @@ class Brain:
         except Exception as e:
             logger.error(f"Failed to load system prompt: {e}")
             self.system_prompt = "You are a helpful assistant."
+
+        # Initialize History with the current date to help with calendar tasks
+        current_date_context = f"\nCurrent Date/Time: {time.strftime('%Y-%m-%d %H:%M:%S')}"
+        self.system_prompt += current_date_context
 
         self.history = [
             {"role": "system", "content": self.system_prompt}
@@ -60,15 +66,9 @@ class Brain:
     def _get_all_tools(self) -> list[dict]:
         """
         Get all available tools: MCP tools + internal Karien-only tools.
-        
-        Internal tools are Karien-specific and always available:
-        - stop_listening: Puts Karien to standby
-        - analyze_screen: Uses vision to read screen content
-        
-        Other tools come from enabled MCP servers.
         """
-        # Start with internal Karien-only tools
-        internal_tools = [
+        # Karien-specific tools that need special handling in Brain/Orchestrator
+        karien_tools = [
             {
                 "type": "function",
                 "function": {
@@ -86,8 +86,8 @@ class Brain:
                 }
             },
         ]
-        
-        # Get MCP tools (if MCP manager is initialized)
+
+        # Get all tools from MCP manager (includes MCP servers + internal tools like Google)
         try:
             from assistant.mcp.manager import mcp_manager
             mcp_tools = mcp_manager.get_all_tools()
@@ -96,17 +96,13 @@ class Brain:
             logger.warning(f"Could not get MCP tools: {e}")
             mcp_tools = []
         
-        # Merge: MCP tools first, then internal tools
-        all_tools = mcp_tools + internal_tools
-        return all_tools
+        # MCP tools first, then Karien-specific tools
+        return mcp_tools + karien_tools
 
     def chat_stream(self, user_text: str):
         """
         Sends user text to LLM and yields chunks of response.
-        Yields:
-            ("CONTENT", text_chunk)
-            ("TOOL", (function_name, arguments_chunk))
-            ("TOOL_END", None)
+        Handles Tool Calls (both MCP and Internal).
         """
         if not self.client:
             yield ("CONTENT", "[NEUTRAL] I have no brain (API Key missing). I can't think!")
@@ -114,66 +110,150 @@ class Brain:
 
         self.history.append({"role": "user", "content": user_text})
         
-        full_response = ""
-        tool_calls = [] # Accumulate tool calls
-        
-        # Build tools list: MCP tools + internal Karien-only tools
+        # Build tools list
         tools = self._get_all_tools()
 
-        try:
-            # Simple Retry Logic
-            stream = None
+        # Inner loop to handle tool outputs (Assistant -> Tool -> Assistant -> User)
+        # We allow up to 3 turns of tool usage per user message to prevent infinite loops
+        MAX_TOOL_TURNS = 3
+        
+        for turn in range(MAX_TOOL_TURNS + 1):
             
-            for attempt in range(config.LLM_RETRY_COUNT):
-                try:
-                    stream = self.client.chat.completions.create(
-                        model=config.LLM_MODEL,
-                        messages=self.history,
-                        tools=tools,
-                        tool_choice="auto",
-                        stream=True
-                    )
-                    break # Success
-                except Exception as e:
-                    logger.warning(f"LLM Connection failed (Attempt {attempt+1}/{config.LLM_RETRY_COUNT}): {e}")
-                    if attempt == config.LLM_RETRY_COUNT - 1:
-                        raise e
-                    time.sleep(config.LLM_RETRY_DELAY) # Wait before retry
-
-            for chunk in stream:
-                # 1. Handle Content
-                if chunk.choices[0].delta.content:
-                    content = chunk.choices[0].delta.content
-                    logger.debug(f"Chunk received: {content!r}")
-                    full_response += content
-                    yield ("CONTENT", content)
-                
-                # 2. Handle Tool Calls
-                if chunk.choices[0].delta.tool_calls:
-                    for tool_call in chunk.choices[0].delta.tool_calls:
-                        # If index is new, expand list
-                        if len(tool_calls) <= tool_call.index:
-                            tool_calls.append({"name": "", "arguments": ""})
-                        
-                        if tool_call.function.name:
-                            tool_calls[tool_call.index]["name"] += tool_call.function.name
-                        
-                        if tool_call.function.arguments:
-                             tool_calls[tool_call.index]["arguments"] += tool_call.function.arguments
-
-            # Yield accumulated tools at the end
-            for tool in tool_calls:
-                yield ("TOOL", (tool["name"], tool["arguments"]))
-
-            self.history.append({"role": "assistant", "content": full_response})
+            full_response = ""
+            tool_calls = [] # Accumulate tool calls for this turn
             
-            # Keep history manageable
-            if len(self.history) > config.HISTORY_MAX_SIZE:
-                self.history = [self.history[0]] + self.history[-config.HISTORY_KEEP_RECENT:]
+            try:
+                # Simple Retry Logic
+                stream = None
+                for attempt in range(config.LLM_RETRY_COUNT):
+                    try:
+                        stream = self.client.chat.completions.create(
+                            model=config.LLM_MODEL,
+                            messages=self.history,
+                            tools=tools,
+                            tool_choice="auto",
+                            stream=True
+                        )
+                        break 
+                    except Exception as e:
+                        logger.warning(f"LLM Connection failed (Attempt {attempt+1}/{config.LLM_RETRY_COUNT}): {e}")
+                        if attempt == config.LLM_RETRY_COUNT - 1:
+                            raise e
+                        time.sleep(config.LLM_RETRY_DELAY)
+
+                # Stream Processing
+                for chunk in stream:
+                    # 1. Handle Content
+                    if chunk.choices[0].delta.content:
+                        content = chunk.choices[0].delta.content
+                        full_response += content
+                        yield ("CONTENT", content)
+                    
+                    # 2. Handle Tool Calls
+                    if chunk.choices[0].delta.tool_calls:
+                        for tool_call in chunk.choices[0].delta.tool_calls:
+                            if len(tool_calls) <= tool_call.index:
+                                tool_calls.append({"id": "", "name": "", "arguments": ""})
+                            
+                            if tool_call.id:
+                                tool_calls[tool_call.index]["id"] = tool_call.id
+                            
+                            if tool_call.function.name:
+                                tool_calls[tool_call.index]["name"] += tool_call.function.name
+                            
+                            if tool_call.function.arguments:
+                                tool_calls[tool_call.index]["arguments"] += tool_call.function.arguments
+
+                # End of stream for this turn
                 
-        except Exception as e:
-            logger.error(f"LLM Stream Error: {e}")
-            yield ("CONTENT", "[SAD] I can't connect to my brain right now. Please check your internet connection.")
+                # If no tool calls, we are done
+                if not tool_calls:
+                    # Save the assistant's final text reply to history
+                    self.history.append({"role": "assistant", "content": full_response})
+                    break 
+
+                # If tool calls existed:
+                # 1. Add the Assistant's "Call" message to history
+                # Ensure we have IDs for all calls (some streamed chunks might miss it if logic above is imperfect, but usually fine)
+                # We reconstruct the tool_calls object for history
+                formatted_tool_calls = []
+                for tc in tool_calls:
+                    formatted_tool_calls.append({
+                        "id": tc["id"],
+                        "type": "function",
+                        "function": {
+                            "name": tc["name"],
+                            "arguments": tc["arguments"]
+                        }
+                    })
+                
+                self.history.append({
+                    "role": "assistant",
+                    "content": full_response or None, # Content can be null if only calling tools
+                    "tool_calls": formatted_tool_calls
+                })
+
+                # 2. Execute Tools and Collect Outputs
+                for tc in tool_calls:
+                    tool_name = tc["name"]
+                    try:
+                        tool_args = json.loads(tc["arguments"])
+                    except json.JSONDecodeError:
+                        tool_args = {}
+                        logger.error(f"Failed to parse arguments for {tool_name}")
+
+                    logger.info(f"Executing Tool: {tool_name} with args {tool_args}")
+                    
+                    # Tell frontend we are running a tool
+                    yield ("TOOL", (tool_name, json.dumps(tool_args)))
+                    
+                    tool_output = "Tool execution failed."
+                    
+                    # --- DISPATCH LOGIC ---
+                    
+                    # A. Karien-specific tools (need Brain/Orchestrator context)
+                    if tool_name == "stop_listening":
+                        tool_output = "Stopping assistant."
+                        
+                    elif tool_name == "analyze_screen":
+                        tool_output = "Screen analysis triggered."
+
+                    # B. All other tools (MCP + internal like Google) → MCPManager
+                    else:
+                        try:
+                            from assistant.mcp.manager import mcp_manager
+                            if mcp_manager.has_tool(tool_name):
+                                # Execute via manager (handles MCP tools + internal fallbacks)
+                                handler = mcp_manager._internal_tools.get(tool_name)
+                                if handler:
+                                    # Sync internal tool (like Google)
+                                    tool_output = handler(**tool_args)
+                                else:
+                                    # MCP tool - async, needs special handling
+                                    tool_output = "MCP Execution Pending (Async Architecture Required)"
+                            else:
+                                tool_output = f"Unknown tool: {tool_name}"
+                        except Exception as e:
+                            logger.error(f"Tool execution error: {e}")
+                            tool_output = f"Tool execution failed: {e}"
+
+                    # Yield result (optional, if you want UI to see it)
+                    # yield ("TOOL_RESULT", tool_output)
+                    
+                    # 3. Add Tool Output to History
+                    self.history.append({
+                        "role": "tool",
+                        "tool_call_id": tc["id"],
+                        "name": tool_name,
+                        "content": str(tool_output)
+                    })
+                    
+                # Loop continues to next turn to let LLM process the tool outputs
+                
+            except Exception as e:
+                logger.error(f"LLM Stream Error: {e}")
+                yield ("CONTENT", "[SAD] I can't connect to my brain right now.")
+                break
 
     def analyze_image(self, base64_image: str):
         """
