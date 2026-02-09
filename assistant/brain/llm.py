@@ -205,7 +205,7 @@ class Brain:
                     logger.info(f"Executing Tool: {tool_name} with args {tool_args}")
                     
                     # Tell frontend we are running a tool
-                    yield ("TOOL", (tool_name, str(tool_args)))
+                    yield ("TOOL", (tool_name, json.dumps(tool_args)))
                     
                     tool_output = "Tool execution failed."
                     

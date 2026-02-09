@@ -103,20 +103,36 @@ class VAD:
         else:
             raise ValueError(f"Unsupported audio data type: {type(audio_data)}")
         
-        # Ensure minimum length for VAD (at least 512 samples)
-        if len(samples) < 512:
-            # Pad with zeros
-            samples = np.pad(samples, (0, 512 - len(samples)), mode='constant')
+        # The Silero VAD model (v4+) requires strict input sizes:
+        # 512 samples for 16000Hz, 256 for 8000Hz.
+        # We need to chunk the input if it's larger than the supported window.
+        window_size = 512 if self.sample_rate == 16000 else 256
         
-        audio_tensor = torch.from_numpy(samples)
-        
-        try:
-            with torch.no_grad():
-                prob = model(audio_tensor, self.sample_rate).item()
-            return float(prob)
-        except Exception as e:
-            logger.error(f"VAD error: {e}")
-            return 0.0
+        # If input is smaller than window, pad it
+        if len(samples) < window_size:
+            samples = np.pad(samples, (0, window_size - len(samples)), mode='constant')
+            
+        probs = []
+        # Process in chunks
+        for i in range(0, len(samples), window_size):
+            chunk = samples[i:i + window_size]
+            
+            # Pad last chunk if incomplete
+            if len(chunk) < window_size:
+                chunk = np.pad(chunk, (0, window_size - len(chunk)), mode='constant')
+                
+            audio_tensor = torch.from_numpy(chunk)
+            
+            try:
+                with torch.no_grad():
+                    # model(...) returns a tensor, use .item() to get float
+                    out = model(audio_tensor, self.sample_rate)
+                    probs.append(out.item())
+            except Exception as e:
+                logger.error(f"VAD inference error: {e}")
+                
+        # Return the maximum probability found in any chunk
+        return float(max(probs)) if probs else 0.0
     
     def reset(self):
         """Reset model state (call between utterances if needed)."""

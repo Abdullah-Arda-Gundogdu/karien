@@ -60,6 +60,7 @@ class Orchestrator:
     def play_startup_sound(self):
         """Play startup sound or fallback to TTS."""
         tts.play_sound("startup")
+        tts.wait_for_idle()  # Wait for sound to finish before STT starts
 
     def play_goodbye_sound(self):
         """Play goodbye sound or fallback to TTS."""
