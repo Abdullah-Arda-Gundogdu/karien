@@ -1,0 +1,1302 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Karien Dashboard — UI Mockup</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --bg-deep: #0a0a14;
+      --bg-sidebar: #0f0f1e;
+      --bg-card: #13132a;
+      --bg-input: #1a1a35;
+      --bg-hover: #1e1e3a;
+      --accent: #00d4ff;
+      --accent-dim: #00d4ff33;
+      --accent-glow: #00d4ff66;
+      --accent-purple: #a855f7;
+      --accent-pink: #ec4899;
+      --accent-green: #22c55e;
+      --accent-orange: #f59e0b;
+      --accent-red: #ef4444;
+      --text-primary: #e8e8f0;
+      --text-secondary: #7a7a9e;
+      --text-dim: #4a4a6e;
+      --border: #2a2a4a;
+      --radius: 12px;
+      --radius-sm: 8px;
+      --font-main: 'Inter', -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: var(--font-main);
+      background: var(--bg-deep);
+      color: var(--text-primary);
+      height: 100vh;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    /* ───── LAYOUT ───── */
+    .app {
+      display: grid;
+      grid-template-columns: 78px 1fr;
+      grid-template-rows: 1fr auto;
+      height: 100vh;
+    }
+
+    /* ───── SIDEBAR ───── */
+    .sidebar {
+      grid-row: 1 / 3;
+      background: var(--bg-sidebar);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px 0;
+      gap: 6px;
+      z-index: 10;
+    }
+
+    .sidebar-logo {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent-purple));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 16px;
+      color: #fff;
+      margin-bottom: 28px;
+      box-shadow: 0 0 20px var(--accent-dim);
+    }
+
+    .nav-item {
+      width: 52px;
+      height: 52px;
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      position: relative;
+      color: var(--text-secondary);
+      gap: 3px;
+    }
+
+    .nav-item:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .nav-item.active {
+      background: var(--accent-dim);
+      color: var(--accent);
+    }
+
+    .nav-item.active::before {
+      content: '';
+      position: absolute;
+      left: -13px;
+      width: 3px;
+      height: 24px;
+      background: var(--accent);
+      border-radius: 0 3px 3px 0;
+      box-shadow: 0 0 10px var(--accent);
+    }
+
+    .nav-icon {
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    .nav-label {
+      font-size: 9px;
+      font-weight: 500;
+      letter-spacing: 0.3px;
+    }
+
+    .sidebar-footer {
+      margin-top: auto;
+      text-align: center;
+      padding: 10px;
+    }
+
+    .sidebar-version {
+      font-size: 10px;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+    }
+
+    .sidebar-status {
+      font-size: 9px;
+      color: var(--accent-green);
+      margin-top: 6px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      justify-content: center;
+    }
+
+    .sidebar-status .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-green);
+      animation: pulse-dot 2s infinite;
+    }
+
+    /* ───── MAIN CONTENT ───── */
+    .main-content {
+      overflow: hidden;
+      position: relative;
+    }
+
+    .view {
+      display: none;
+      height: 100%;
+    }
+
+    .view.active {
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ───── AVATAR VIEW ───── */
+    .avatar-view {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      background: radial-gradient(ellipse at center, #0d1530 0%, var(--bg-deep) 70%);
+      height: 100%;
+    }
+
+    .orb-container {
+      position: relative;
+      width: 400px;
+      height: 400px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      order: 2;
+      /* Move below status */
+      margin-top: 20px;
+    }
+
+    .orb {
+      width: 200px;
+      height: 200px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #33ccff, #0066cc, #003366);
+      box-shadow:
+        0 0 60px 20px rgba(0, 180, 255, 0.25),
+        0 0 120px 40px rgba(0, 120, 255, 0.1),
+        inset 0 0 30px rgba(255, 255, 255, 0.1);
+      animation: orb-idle 4s ease-in-out infinite;
+      position: relative;
+      z-index: 2;
+    }
+
+    .orb-ring {
+      position: absolute;
+      border-radius: 50%;
+      border: 1px solid;
+      animation: ring-pulse 4s ease-in-out infinite;
+    }
+
+    .orb-ring:nth-child(2) {
+      width: 280px;
+      height: 280px;
+      border-color: rgba(0, 212, 255, 0.15);
+      animation-delay: 0s;
+    }
+
+    .orb-ring:nth-child(3) {
+      width: 360px;
+      height: 360px;
+      border-color: rgba(0, 212, 255, 0.08);
+      animation-delay: 0.5s;
+    }
+
+    .orb-ring:nth-child(4) {
+      width: 440px;
+      height: 440px;
+      border-color: rgba(0, 212, 255, 0.04);
+      animation-delay: 1s;
+    }
+
+    .avatar-status {
+      margin-top: 0;
+      margin-bottom: 20px;
+      text-align: center;
+      order: 1;
+      /* Move above orb */
+      z-index: 5;
+    }
+
+    .avatar-status-text {
+      font-size: 14px;
+      color: var(--text-secondary);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      font-weight: 500;
+    }
+
+    .avatar-status-text .highlight {
+      color: var(--accent);
+    }
+
+    .avatar-name {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-purple));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    /* state classes */
+    .orb-container.listening .orb {
+      animation: orb-listen 1.5s ease-in-out infinite;
+      background: radial-gradient(circle at 35% 35%, #44ddff, #0088ee, #004488);
+      box-shadow:
+        0 0 80px 30px rgba(0, 200, 255, 0.35),
+        0 0 160px 60px rgba(0, 150, 255, 0.15),
+        inset 0 0 30px rgba(255, 255, 255, 0.15);
+    }
+
+    .orb-container.thinking .orb {
+      animation: orb-think 0.8s ease-in-out infinite;
+      background: radial-gradient(circle at 35% 35%, #bb77ff, #7733cc, #440088);
+      box-shadow:
+        0 0 80px 30px rgba(168, 85, 247, 0.35),
+        0 0 160px 60px rgba(168, 85, 247, 0.15),
+        inset 0 0 30px rgba(255, 255, 255, 0.15);
+    }
+
+    .orb-container.speaking .orb {
+      animation: orb-speak 0.6s ease-in-out infinite;
+      background: radial-gradient(circle at 35% 35%, #ff77cc, #cc3399, #880044);
+      box-shadow:
+        0 0 80px 30px rgba(236, 72, 153, 0.35),
+        0 0 160px 60px rgba(236, 72, 153, 0.15),
+        inset 0 0 30px rgba(255, 255, 255, 0.15);
+    }
+
+    /* ───── BOTTOM BAR ───── */
+    .bottom-bar {
+      background: var(--bg-sidebar);
+      border-top: 1px solid var(--border);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      justify-content: center;
+    }
+
+    .action-btn {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 8px 18px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: var(--font-main);
+    }
+
+    .action-btn:hover {
+      background: var(--bg-hover);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .action-btn.danger:hover {
+      border-color: var(--accent-red);
+      color: var(--accent-red);
+    }
+
+    .state-switcher {
+      margin-left: auto;
+      display: flex;
+      gap: 6px;
+    }
+
+    .state-btn {
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--bg-input);
+      color: var(--text-dim);
+      font-size: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-family: var(--font-main);
+    }
+
+    .state-btn:hover,
+    .state-btn.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-dim);
+    }
+
+    /* ───── CONSOLE VIEW ───── */
+    .console-view {
+      background: var(--bg-deep);
+    }
+
+    .console-toolbar {
+      display: flex;
+      align-items: center;
+      padding: 12px 20px;
+      border-bottom: 1px solid var(--border);
+      gap: 10px;
+    }
+
+    .console-toolbar .title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-right: auto;
+      letter-spacing: 0.5px;
+    }
+
+    .toolbar-btn {
+      padding: 6px 14px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text-secondary);
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: var(--font-main);
+    }
+
+    .toolbar-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .toggle-switch {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
+
+    .toggle-track {
+      width: 34px;
+      height: 18px;
+      border-radius: 9px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      position: relative;
+      transition: all 0.3s;
+    }
+
+    .toggle-track.on {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+    }
+
+    .toggle-track::after {
+      content: '';
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--text-secondary);
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      transition: all 0.3s;
+    }
+
+    .toggle-track.on::after {
+      left: 18px;
+      background: var(--accent);
+    }
+
+    .log-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 20px;
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      line-height: 1.9;
+    }
+
+    .log-area::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .log-area::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .log-area::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 3px;
+    }
+
+    .log-entry {
+      display: flex;
+      gap: 10px;
+      padding: 2px 0;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .log-time {
+      color: var(--text-dim);
+      min-width: 70px;
+    }
+
+    .log-badge {
+      padding: 1px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      min-width: 50px;
+      text-align: center;
+      display: inline-block;
+    }
+
+    .log-badge.info {
+      background: #1e3a5f;
+      color: #60a5fa;
+    }
+
+    .log-badge.user {
+      background: #1a3a3a;
+      color: #22d3ee;
+    }
+
+    .log-badge.llm {
+      background: #2d1b69;
+      color: #a78bfa;
+    }
+
+    .log-badge.tool {
+      background: #3d2b00;
+      color: #fbbf24;
+    }
+
+    .log-badge.tts {
+      background: #3d1b3d;
+      color: #f472b6;
+    }
+
+    .log-badge.error {
+      background: #3d1b1b;
+      color: #f87171;
+    }
+
+    .log-badge.mcp {
+      background: #1b3d2b;
+      color: #4ade80;
+    }
+
+    .log-msg {
+      color: var(--text-primary);
+    }
+
+    .console-input-bar {
+      display: flex;
+      align-items: center;
+      padding: 12px 20px;
+      border-top: 1px solid var(--border);
+      gap: 10px;
+    }
+
+    .console-input-bar .prompt-char {
+      color: var(--accent);
+      font-family: var(--font-mono);
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .console-input {
+      flex: 1;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .console-input:focus {
+      border-color: var(--accent);
+    }
+
+    .console-input::placeholder {
+      color: var(--text-dim);
+    }
+
+    .send-btn {
+      padding: 10px 20px;
+      border-radius: var(--radius-sm);
+      border: none;
+      background: linear-gradient(135deg, var(--accent), #0099cc);
+      color: #fff;
+      font-weight: 600;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: var(--font-main);
+      box-shadow: 0 0 15px rgba(0, 212, 255, 0.2);
+    }
+
+    .send-btn:hover {
+      box-shadow: 0 0 25px rgba(0, 212, 255, 0.4);
+      transform: translateY(-1px);
+    }
+
+    /* ───── SETTINGS VIEW ───── */
+    .settings-view {
+      background: var(--bg-deep);
+      overflow-y: auto;
+      padding: 0;
+    }
+
+    .settings-view::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .settings-view::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .settings-view::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 3px;
+    }
+
+    .settings-header {
+      padding: 28px 32px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .settings-header h1 {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 1px;
+    }
+
+    .settings-header p {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+
+    .settings-body {
+      padding: 24px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .settings-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+
+    .settings-section:hover {
+      border-color: #3a3a5a;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      padding: 16px 20px;
+      cursor: pointer;
+      gap: 10px;
+      transition: background 0.2s;
+    }
+
+    .section-header:hover {
+      background: var(--bg-hover);
+    }
+
+    .section-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+
+    .section-icon.llm {
+      background: linear-gradient(135deg, #2d1b69, #4c1d95);
+    }
+
+    .section-icon.mcp {
+      background: linear-gradient(135deg, #1b3d2b, #166534);
+    }
+
+    .section-icon.audio {
+      background: linear-gradient(135deg, #3d2b00, #92400e);
+    }
+
+    .section-icon.voice {
+      background: linear-gradient(135deg, #3d1b3d, #831843);
+    }
+
+    .section-title {
+      font-size: 14px;
+      font-weight: 600;
+      flex: 1;
+    }
+
+    .section-chevron {
+      color: var(--text-dim);
+      transition: transform 0.3s;
+      font-size: 12px;
+    }
+
+    .section-chevron.open {
+      transform: rotate(180deg);
+    }
+
+    .section-body {
+      padding: 0 20px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .form-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .form-label {
+      font-size: 13px;
+      color: var(--text-secondary);
+      min-width: 100px;
+      font-weight: 500;
+    }
+
+    .form-select {
+      flex: 1;
+      max-width: 280px;
+      padding: 9px 14px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--bg-input);
+      color: var(--text-primary);
+      font-size: 13px;
+      font-family: var(--font-main);
+      outline: none;
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%237a7a9e'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+    }
+
+    .form-select:focus {
+      border-color: var(--accent);
+    }
+
+    .slider-container {
+      flex: 1;
+      max-width: 280px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .slider {
+      flex: 1;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--bg-input);
+      outline: none;
+    }
+
+    .slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      box-shadow: 0 0 10px var(--accent-glow);
+    }
+
+    .slider-value {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--accent);
+      min-width: 30px;
+    }
+
+    .mcp-item {
+      display: flex;
+      align-items: center;
+      padding: 12px 16px;
+      border-radius: var(--radius-sm);
+      background: var(--bg-input);
+      gap: 12px;
+    }
+
+    .mcp-toggle {
+      width: 40px;
+      height: 22px;
+      border-radius: 11px;
+      background: var(--border);
+      position: relative;
+      cursor: pointer;
+      transition: all 0.3s;
+      flex-shrink: 0;
+    }
+
+    .mcp-toggle.on {
+      background: var(--accent);
+      box-shadow: 0 0 10px var(--accent-dim);
+    }
+
+    .mcp-toggle::after {
+      content: '';
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: white;
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      transition: all 0.3s;
+    }
+
+    .mcp-toggle.on::after {
+      left: 21px;
+    }
+
+    .mcp-name {
+      font-size: 13px;
+      font-weight: 500;
+      flex: 1;
+    }
+
+    .mcp-status {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 10px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .mcp-status.connected {
+      background: #0d3320;
+      color: var(--accent-green);
+    }
+
+    .mcp-status.disabled {
+      background: #2a2a3e;
+      color: var(--text-dim);
+    }
+
+    /* ───── ANIMATIONS ───── */
+    @keyframes orb-idle {
+
+      0%,
+      100% {
+        transform: scale(1);
+      }
+
+      50% {
+        transform: scale(1.06);
+      }
+    }
+
+    @keyframes orb-listen {
+
+      0%,
+      100% {
+        transform: scale(1);
+      }
+
+      50% {
+        transform: scale(1.15);
+      }
+    }
+
+    @keyframes orb-think {
+
+      0%,
+      100% {
+        transform: scale(0.95) rotate(0deg);
+      }
+
+      50% {
+        transform: scale(1.08) rotate(180deg);
+      }
+    }
+
+    @keyframes orb-speak {
+
+      0%,
+      100% {
+        transform: scale(1);
+      }
+
+      25% {
+        transform: scale(1.12);
+      }
+
+      75% {
+        transform: scale(0.95);
+      }
+    }
+
+    @keyframes ring-pulse {
+
+      0%,
+      100% {
+        transform: scale(1);
+        opacity: 1;
+      }
+
+      50% {
+        transform: scale(1.08);
+        opacity: 0.5;
+      }
+    }
+
+    @keyframes pulse-dot {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.3;
+      }
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(4px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* Particles */
+    .particles {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      top: 0;
+      left: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    .particle {
+      position: absolute;
+      width: 2px;
+      height: 2px;
+      border-radius: 50%;
+      background: var(--accent);
+      opacity: 0.3;
+      animation: float-up linear infinite;
+    }
+
+    @keyframes float-up {
+      0% {
+        transform: translateY(100vh) scale(0);
+        opacity: 0;
+      }
+
+      10% {
+        opacity: 0.4;
+      }
+
+      90% {
+        opacity: 0.4;
+      }
+
+      100% {
+        transform: translateY(-10vh) scale(1);
+        opacity: 0;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="app">
+    <!-- ───── SIDEBAR ───── -->
+    <div class="sidebar">
+      <div class="sidebar-logo">K</div>
+
+      <div class="nav-item active" data-tab="avatar" onclick="switchTab('avatar')">
+        <span class="nav-icon">◉</span>
+        <span class="nav-label">Avatar</span>
+      </div>
+      <div class="nav-item" data-tab="console" onclick="switchTab('console')">
+        <span class="nav-icon">⌘</span>
+        <span class="nav-label">Console</span>
+      </div>
+      <div class="nav-item" data-tab="settings" onclick="switchTab('settings')">
+        <span class="nav-icon">⚙</span>
+        <span class="nav-label">Settings</span>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="sidebar-status"><span class="dot"></span> Online</div>
+        <div class="sidebar-version">v0.2.0</div>
+      </div>
+    </div>
+
+    <!-- ───── MAIN ───── -->
+    <div class="main-content">
+
+      <!-- AVATAR VIEW -->
+      <div class="view active" id="view-avatar">
+        <div class="avatar-view">
+          <div class="particles" id="particles"></div>
+          <div class="avatar-status">
+            <div class="avatar-name">Karien</div>
+            <div class="avatar-status-text">Status: <span class="highlight" id="statusLabel">Idle</span></div>
+          </div>
+          <div class="orb-container" id="orbContainer">
+            <div class="orb"></div>
+            <div class="orb-ring"></div>
+            <div class="orb-ring"></div>
+            <div class="orb-ring"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CONSOLE VIEW -->
+      <div class="view" id="view-console">
+        <div class="console-view">
+          <div class="console-toolbar">
+            <span class="title">⌘ Console Output</span>
+            <button class="toolbar-btn" onclick="clearLogs()">Clear Log</button>
+            <div class="toggle-switch" onclick="this.querySelector('.toggle-track').classList.toggle('on')">
+              <div class="toggle-track on"></div>
+              <span>Auto-Scroll</span>
+            </div>
+          </div>
+          <div class="log-area" id="logArea">
+            <!-- filled by JS -->
+          </div>
+          <div class="console-input-bar">
+            <span class="prompt-char">❯</span>
+            <input class="console-input" type="text" placeholder="Type command manually here..." />
+            <button class="send-btn">Send</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- SETTINGS VIEW -->
+      <div class="view" id="view-settings">
+        <div class="settings-view">
+          <div class="settings-header">
+            <h1>⚙ Settings</h1>
+            <p>Configure your assistant's brain, tools, and audio.</p>
+          </div>
+          <div class="settings-body">
+
+            <!-- LLM Config -->
+            <div class="settings-section">
+              <div class="section-header">
+                <div class="section-icon llm">🧠</div>
+                <span class="section-title">LLM Configuration</span>
+                <span class="section-chevron open">▼</span>
+              </div>
+              <div class="section-body">
+                <div class="form-row">
+                  <span class="form-label">Provider</span>
+                  <select class="form-select">
+                    <option>OpenAI</option>
+                    <option>Groq</option>
+                    <option>Anthropic</option>
+                    <option>Ollama (Local)</option>
+                  </select>
+                </div>
+                <div class="form-row">
+                  <span class="form-label">Model</span>
+                  <select class="form-select">
+                    <option>gpt-4o</option>
+                    <option>gpt-4o-mini</option>
+                    <option>gpt-3.5-turbo</option>
+                  </select>
+                </div>
+                <div class="form-row">
+                  <span class="form-label">Temperature</span>
+                  <div class="slider-container">
+                    <input type="range" class="slider" min="0" max="100" value="70"
+                      oninput="this.nextElementSibling.textContent = (this.value/100).toFixed(2)">
+                    <span class="slider-value">0.70</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- MCP Servers -->
+            <div class="settings-section">
+              <div class="section-header">
+                <div class="section-icon mcp">🔌</div>
+                <span class="section-title">MCP Servers (Tools)</span>
+                <span class="section-chevron open">▼</span>
+              </div>
+              <div class="section-body">
+                <div class="mcp-item">
+                  <div class="mcp-toggle on" onclick="this.classList.toggle('on'); toggleStatus(this)"></div>
+                  <span class="mcp-name">Google Search</span>
+                  <span class="mcp-status connected">Connected</span>
+                </div>
+                <div class="mcp-item">
+                  <div class="mcp-toggle" onclick="this.classList.toggle('on'); toggleStatus(this)"></div>
+                  <span class="mcp-name">Local Filesystem</span>
+                  <span class="mcp-status disabled">Disabled</span>
+                </div>
+                <div class="mcp-item">
+                  <div class="mcp-toggle on" onclick="this.classList.toggle('on'); toggleStatus(this)"></div>
+                  <span class="mcp-name">Memory / Database</span>
+                  <span class="mcp-status connected">Connected</span>
+                </div>
+                <div class="mcp-item">
+                  <div class="mcp-toggle on" onclick="this.classList.toggle('on'); toggleStatus(this)"></div>
+                  <span class="mcp-name">Screen Capture</span>
+                  <span class="mcp-status connected">Connected</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Audio -->
+            <div class="settings-section">
+              <div class="section-header">
+                <div class="section-icon audio">🎤</div>
+                <span class="section-title">Audio Configuration</span>
+                <span class="section-chevron open">▼</span>
+              </div>
+              <div class="section-body">
+                <div class="form-row">
+                  <span class="form-label">Input Device</span>
+                  <select class="form-select">
+                    <option>Microphone Array (Realtek)</option>
+                    <option>External USB Mic</option>
+                    <option>Default</option>
+                  </select>
+                </div>
+                <div class="form-row">
+                  <span class="form-label">Wake Word</span>
+                  <select class="form-select">
+                    <option>Karien</option>
+                    <option>Hey Karien</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- Voice -->
+            <div class="settings-section">
+              <div class="section-header">
+                <div class="section-icon voice">🗣️</div>
+                <span class="section-title">Voice / TTS</span>
+                <span class="section-chevron open">▼</span>
+              </div>
+              <div class="section-body">
+                <div class="form-row">
+                  <span class="form-label">TTS Engine</span>
+                  <select class="form-select">
+                    <option>Google Cloud TTS</option>
+                    <option>ElevenLabs</option>
+                    <option>System TTS</option>
+                  </select>
+                </div>
+                <div class="form-row">
+                  <span class="form-label">Voice</span>
+                  <select class="form-select">
+                    <option>tr-TR-Wavenet-A (Female)</option>
+                    <option>tr-TR-Wavenet-B (Male)</option>
+                    <option>en-US-Neural2-F (Female)</option>
+                  </select>
+                </div>
+                <div class="form-row">
+                  <span class="form-label">Speed</span>
+                  <div class="slider-container">
+                    <input type="range" class="slider" min="50" max="200" value="100"
+                      oninput="this.nextElementSibling.textContent = (this.value/100).toFixed(1) + 'x'">
+                    <span class="slider-value">1.0x</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ───── BOTTOM BAR ───── -->
+    <div class="bottom-bar">
+      <button class="action-btn" onclick="toggleMute(this)">🎤 Mute</button>
+      <button class="action-btn danger">⏹ Force Stop</button>
+      <button class="action-btn">📸 Screenshot</button>
+
+      <div class="state-switcher">
+        <button class="state-btn active" onclick="setOrbState('idle', this)">Idle</button>
+        <button class="state-btn" onclick="setOrbState('listening', this)">Listen</button>
+        <button class="state-btn" onclick="setOrbState('thinking', this)">Think</button>
+        <button class="state-btn" onclick="setOrbState('speaking', this)">Speak</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Tab switching
+    function switchTab(name) {
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      document.querySelector(`.nav-item[data-tab="${name}"]`).classList.add('active');
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.getElementById('view-' + name).classList.add('active');
+    }
+
+    // Orb state
+    function setOrbState(state, btn) {
+      const container = document.getElementById('orbContainer');
+      container.className = 'orb-container';
+      if (state !== 'idle') container.classList.add(state);
+
+      const labels = { idle: 'Idle', listening: 'Listening...', thinking: 'Thinking...', speaking: 'Speaking...' };
+      document.getElementById('statusLabel').textContent = labels[state];
+
+      document.querySelectorAll('.state-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    }
+
+    // Mute toggle
+    function toggleMute(btn) {
+      const muted = btn.textContent.includes('Unmute');
+      btn.innerHTML = muted ? '🎤 Mute' : '🔇 Unmute';
+    }
+
+    // MCP toggle status
+    function toggleStatus(toggle) {
+      const statusEl = toggle.parentElement.querySelector('.mcp-status');
+      if (toggle.classList.contains('on')) {
+        statusEl.className = 'mcp-status connected';
+        statusEl.textContent = 'Connected';
+      } else {
+        statusEl.className = 'mcp-status disabled';
+        statusEl.textContent = 'Disabled';
+      }
+    }
+
+    // Console logs
+    const logs = [
+      { time: '10:23:01', type: 'info', msg: 'System initialized. All modules loaded.' },
+      { time: '10:23:01', type: 'info', msg: 'MCP Servers: 3/4 connected.' },
+      { time: '10:23:02', type: 'info', msg: 'Listening for wake word...' },
+      { time: '10:23:05', type: 'info', msg: 'Wake word detected!' },
+      { time: '10:23:06', type: 'user', msg: '"Hello Karien, what\'s the weather today?"' },
+      { time: '10:23:07', type: 'llm', msg: 'Processing query with gpt-4o (temp: 0.7)...' },
+      { time: '10:23:08', type: 'tool', msg: 'Calling tool: google_search("weather Istanbul today")' },
+      { time: '10:23:09', type: 'mcp', msg: 'Google Search returned 5 results.' },
+      { time: '10:23:09', type: 'llm', msg: 'Generating response...' },
+      { time: '10:23:10', type: 'tts', msg: 'Speaking: "It\'s currently 8°C in Istanbul with partly cloudy skies..."' },
+      { time: '10:23:15', type: 'info', msg: 'Response complete. Returning to idle.' },
+      { time: '10:23:16', type: 'info', msg: 'Listening for wake word...' },
+    ];
+
+    function renderLogs() {
+      const area = document.getElementById('logArea');
+      area.innerHTML = logs.map(l => `
+      <div class="log-entry">
+        <span class="log-time">${l.time}</span>
+        <span class="log-badge ${l.type}">${l.type.toUpperCase()}</span>
+        <span class="log-msg">${l.msg}</span>
+      </div>
+    `).join('');
+    }
+    function clearLogs() {
+      document.getElementById('logArea').innerHTML = '';
+    }
+    renderLogs();
+
+    // Particles
+    const particlesEl = document.getElementById('particles');
+    for (let i = 0; i < 30; i++) {
+      const p = document.createElement('div');
+      p.className = 'particle';
+      p.style.left = Math.random() * 100 + '%';
+      p.style.animationDuration = (6 + Math.random() * 8) + 's';
+      p.style.animationDelay = Math.random() * 10 + 's';
+      p.style.width = p.style.height = (1 + Math.random() * 2) + 'px';
+      particlesEl.appendChild(p);
+    }
+
+    // Section collapse
+    document.querySelectorAll('.section-header').forEach(header => {
+      header.addEventListener('click', () => {
+        const body = header.nextElementSibling;
+        const chevron = header.querySelector('.section-chevron');
+        if (body.style.display === 'none') {
+          body.style.display = 'flex';
+          chevron.classList.add('open');
+        } else {
+          body.style.display = 'none';
+          chevron.classList.remove('open');
+        }
+      });
+    });
+  </script>
+
+</body>
+
+</html>
