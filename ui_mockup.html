@@ -405,6 +405,40 @@
       color: var(--text-primary);
     }
 
+    .connect-btn {
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-primary);
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font-main);
+    }
+
+    .connect-btn:hover {
+      border-color: var(--text-primary);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .connect-btn.google {
+      /* distinct google style if needed, or keep generic */
+    }
+
+    .google-icon {
+      font-weight: 700;
+      font-family: var(--font-main);
+      background: linear-gradient(135deg, #4285F4, #34A853, #FBBC05, #EA4335);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      font-size: 14px;
+    }
+
     .toggle-switch {
       display: flex;
       align-items: center;
@@ -1095,9 +1129,11 @@
               </div>
               <div class="section-body">
                 <div class="mcp-item">
-                  <div class="mcp-toggle on" onclick="this.classList.toggle('on'); toggleStatus(this)"></div>
+                  <div class="mcp-toggle" onclick="this.classList.toggle('on'); toggleStatus(this)"></div>
                   <span class="mcp-name">Google Search</span>
-                  <span class="mcp-status connected">Connected</span>
+                  <button class="connect-btn google">
+                    <span class="google-icon">G</span> Sign in
+                  </button>
                 </div>
                 <div class="mcp-item">
                   <div class="mcp-toggle" onclick="this.classList.toggle('on'); toggleStatus(this)"></div>
