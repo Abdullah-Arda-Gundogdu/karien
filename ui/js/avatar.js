@@ -1,7 +1,10 @@
 /**
  * Karien — Avatar Module
  * 
- * Manages the orb state machine and floating particles.
+ * Manages the orb state machine, floating particles, and mood expressions.
+ * 
+ * MOODS:  neutral, happy, sad, annoyed, embarrassed, proud, curious, excited, sleepy
+ * STATES: idle, listening, thinking, speaking (orb animation states)
  */
 
 const ORB_LABELS = {
@@ -11,6 +14,14 @@ const ORB_LABELS = {
     speaking: 'Speaking...'
 };
 
+const VALID_MOODS = [
+    'neutral', 'happy', 'sad', 'annoyed', 'embarrassed',
+    'proud', 'curious', 'excited', 'sleepy'
+];
+
+let _currentMood = 'neutral';
+let _currentState = 'idle';
+
 /**
  * Initialize avatar: create particles.
  */
@@ -19,13 +30,15 @@ function initAvatar() {
 }
 
 /**
- * Switch the orb to a visual state.
- * @param {string} state - 'idle' | 'listening' | 'thinking' | 'speaking'
- * @param {HTMLElement} [btn] - The button that was clicked (for highlighting)
+ * Switch the orb to a visual state (idle/listening/thinking/speaking).
+ * Preserves the current mood expression.
  */
 function setOrbState(state, btn) {
+    _currentState = state;
     const container = document.getElementById('orbContainer');
-    container.className = 'orb-container';
+
+    // Remove old state classes but keep mood classes
+    container.classList.remove('idle', 'listening', 'thinking', 'speaking');
     if (state !== 'idle') container.classList.add(state);
 
     document.getElementById('statusLabel').textContent = ORB_LABELS[state] || 'Idle';
@@ -37,13 +50,47 @@ function setOrbState(state, btn) {
 }
 
 /**
- * Called from Python via evaluate_js to update status text.
+ * Set the mood expression on the orb face.
+ * Called from Python via evaluate_js when LLM outputs a [mood] tag,
+ * or from console via /mood command.
+ * @param {string} mood - One of the 9 valid moods
+ */
+function setMood(mood) {
+    const normalized = mood.toLowerCase().trim();
+    if (!VALID_MOODS.includes(normalized)) {
+        console.warn('Unknown mood:', mood);
+        return;
+    }
+
+    _currentMood = normalized;
+    const container = document.getElementById('orbContainer');
+
+    // Remove all mood classes
+    VALID_MOODS.forEach(m => container.classList.remove('mood-' + m));
+
+    // Apply new mood (neutral = no extra class)
+    if (normalized !== 'neutral') {
+        container.classList.add('mood-' + normalized);
+    }
+
+    // Update status text with mood
+    const label = document.getElementById('statusLabel');
+    if (label && _currentState === 'idle') {
+        const moodEmoji = {
+            neutral: '', happy: '😊', sad: '😢', annoyed: '😤',
+            embarrassed: '😳', proud: '✨', curious: '🤔', excited: '⭐', sleepy: '😴'
+        };
+        label.textContent = (normalized.charAt(0).toUpperCase() + normalized.slice(1) + ' ' + (moodEmoji[normalized] || '')).trim();
+    }
+}
+
+/**
+ * Called from Python via evaluate_js to update orb status.
  * @param {string} status - e.g. 'listening', 'thinking'
  */
 function updateStatus(status) {
     const normalized = status.toLowerCase();
     setOrbState(normalized);
-    // Also update state buttons
     document.querySelectorAll('.state-btn').forEach(b => {
         b.classList.toggle('active', b.textContent.toLowerCase().includes(normalized));
     });

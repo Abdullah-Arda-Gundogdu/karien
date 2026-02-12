@@ -50,13 +50,28 @@ function addLog(level, message) {
 function renderLogs() {
     const area = document.getElementById('logArea');
     if (!area) return;
-    area.innerHTML = _logs.map(l => `
-    <div class="log-entry">
-      <span class="log-time">${l.time}</span>
-      <span class="log-badge ${l.type}">${l.type.toUpperCase()}</span>
-      <span class="log-msg">${escapeHtml(l.msg)}</span>
-    </div>
-  `).join('');
+    area.innerHTML = '';
+    _logs.forEach(l => {
+        const entry = document.createElement('div');
+        entry.className = 'log-entry';
+
+        const time = document.createElement('span');
+        time.className = 'log-time';
+        time.textContent = l.time;
+
+        const badge = document.createElement('span');
+        badge.className = 'log-badge ' + l.type;
+        badge.textContent = l.type.toUpperCase();
+
+        const msg = document.createElement('span');
+        msg.className = 'log-msg';
+        msg.textContent = l.msg;
+
+        entry.appendChild(time);
+        entry.appendChild(badge);
+        entry.appendChild(msg);
+        area.appendChild(entry);
+    });
 }
 
 /**
@@ -70,13 +85,46 @@ function clearLogs() {
 
 /**
  * Send a text command from the console input.
+ * Supports slash commands: /mood <name>, /state <name>, /help
  */
 async function sendCommand(input) {
     const text = input.value.trim();
     if (!text) return;
-
-    addLog('user', `"${text}"`);
     input.value = '';
+
+    // ── Slash commands (handled locally) ──
+    if (text.startsWith('/')) {
+        const parts = text.split(/\s+/);
+        const cmd = parts[0].toLowerCase();
+        const arg = parts[1] || '';
+
+        if (cmd === '/mood') {
+            if (arg) {
+                setMood(arg);
+                addLog('info', `Mood set to: ${arg}`);
+            } else {
+                addLog('info', 'Available moods: neutral, happy, sad, annoyed, embarrassed, proud, curious, excited, sleepy');
+            }
+        } else if (cmd === '/state') {
+            if (arg) {
+                setOrbState(arg);
+                addLog('info', `State set to: ${arg}`);
+            } else {
+                addLog('info', 'Available states: idle, listening, thinking, speaking');
+            }
+        } else if (cmd === '/help') {
+            addLog('info', 'Commands: /mood [name] | /state [name] | /help');
+            addLog('info', 'Moods: neutral, happy, sad, annoyed, embarrassed, proud, curious, excited, sleepy');
+            addLog('info', 'States: idle, listening, thinking, speaking');
+            addLog('info', 'Anything else is sent to the LLM as a chat message.');
+        } else {
+            addLog('error', 'Unknown command: ' + cmd + '. Type /help for available commands.');
+        }
+        return;
+    }
+
+    // ── Regular text → send to LLM ──
+    addLog('user', `"${text}"`);
 
     if (window.pywebview && window.pywebview.api) {
         try {

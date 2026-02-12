@@ -3,11 +3,15 @@ Karien API Bridge — pywebview ↔ Frontend
 
 Exposes Python methods to JavaScript via pywebview's js_api.
 The frontend calls these methods to get/set dynamic data.
+Also handles log interception and orchestrator text-mode integration.
 """
 
 import json
 import os
+import re
+import asyncio
 import threading
+import logging
 from pathlib import Path
 from assistant.core.logging_config import logger
 
@@ -17,13 +21,49 @@ CONFIG_DIR = BASE_DIR / "config"
 SETTINGS_PATH = CONFIG_DIR / "settings.json"
 
 
+class UILogHandler(logging.Handler):
+    """Intercepts Python logger output and pushes it to the UI console."""
+
+    def __init__(self, api_instance):
+        super().__init__()
+        self._api = api_instance
+        self.setFormatter(logging.Formatter('%(message)s'))
+
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            level_map = {
+                'DEBUG': 'info',
+                'INFO': 'info',
+                'WARNING': 'tool',
+                'ERROR': 'error',
+                'CRITICAL': 'error'
+            }
+            level = level_map.get(record.levelname, 'info')
+            self._api.emit_log(level, msg)
+        except Exception:
+            pass  # Don't let log handler errors crash the app
+
+
 class KarienAPI:
     def __init__(self):
         self._window = None
         self._shutdown_event = threading.Event()
+        self._loop = None  # asyncio loop for orchestrator
+        self._orchestrator_thread = None
 
     def set_window(self, window):
         self._window = window
+        # Attach log handler now that window is ready
+        self._attach_log_handler()
+
+    def _attach_log_handler(self):
+        """Hook into Python's logging to mirror all logs to UI console."""
+        handler = UILogHandler(self)
+        handler.setLevel(logging.INFO)
+        # Attach to root logger so it catches everything
+        root_logger = logging.getLogger()
+        root_logger.addHandler(handler)
 
     # ─── SETTINGS FILE HELPERS ───
 
@@ -137,11 +177,10 @@ class KarienAPI:
         try:
             from assistant.mcp.manager import mcp_manager
             mcp_manager._ensure_loaded()
-            import asyncio
             if enabled:
-                asyncio.run(mcp_manager.enable(mcp_id))
+                mcp_manager.registry.enable(mcp_id)
             else:
-                asyncio.run(mcp_manager.disable(mcp_id))
+                mcp_manager.registry.disable(mcp_id)
             logger.info(f"MCP {mcp_id} toggled to {enabled}")
             return {"success": True}
         except Exception as e:
@@ -180,14 +219,60 @@ class KarienAPI:
         }
 
     # ═══════════════════════════════════════
-    #  CONSOLE / COMMANDS
+    #  CONSOLE / COMMANDS (text-only mode)
     # ═══════════════════════════════════════
 
     def send_command(self, text):
-        """User types in console → sends to orchestrator."""
-        logger.info(f"User Command: {text}")
-        # TODO: call orchestrator._handle_user_input(text)
+        """User types in console → sends to LLM via brain.chat_stream()."""
+        logger.info(f'User: "{text}"')
+
+        # Run the LLM interaction on a background thread
+        thread = threading.Thread(
+            target=self._process_text_command,
+            args=(text,),
+            daemon=True
+        )
+        thread.start()
         return {"status": "processing"}
+
+    def _process_text_command(self, text):
+        """Process a text command through the LLM (runs on background thread)."""
+        try:
+            from assistant.brain.llm import brain
+
+            self.update_status("thinking")
+
+            full_response = ""
+            mood_detected = False
+
+            for chunk_type, chunk_data in brain.chat_stream(text):
+                if chunk_type == "CONTENT":
+                    token = chunk_data
+                    full_response += token
+
+                    # Detect mood tag at start of response
+                    if not mood_detected:
+                        mood_match = re.search(r"^\s*\[([a-zA-Z_]+)\]", full_response)
+                        if mood_match:
+                            mood = mood_match.group(1).lower()
+                            self.set_mood(mood)
+                            mood_detected = True
+
+                elif chunk_type == "TOOL":
+                    func_name, args_str = chunk_data
+                    self.emit_log("tool", f"Calling: {func_name}({args_str})")
+
+            # Clean mood tags from displayed response
+            clean_response = re.sub(r"\[[a-zA-Z_]+\]", "", full_response).strip()
+            if clean_response:
+                self.emit_log("llm", clean_response)
+
+            self.update_status("idle")
+
+        except Exception as e:
+            logger.error(f"LLM error: {e}")
+            self.emit_log("error", f"LLM error: {str(e)}")
+            self.update_status("idle")
 
     def log_message(self, message):
         """Called by JS to verify API works."""
@@ -201,11 +286,16 @@ class KarienAPI:
     def emit_log(self, level, message):
         """Send a log line to the UI console."""
         if self._window:
-            # Escape quotes for JS string
-            safe_msg = message.replace("'", "\\'").replace('"', '\\"')
+            # Escape for safe JS injection
+            safe_msg = message.replace("\\", "\\\\").replace("'", "\\'").replace('"', '\\"').replace("\n", "\\n")
             self._window.evaluate_js(f"addLog('{level}', \"{safe_msg}\")")
 
     def update_status(self, status):
         """Update the orb status (Idle / Listening / etc.)."""
         if self._window:
             self._window.evaluate_js(f"updateStatus('{status}')")
+
+    def set_mood(self, mood):
+        """Update the orb face expression."""
+        if self._window:
+            self._window.evaluate_js(f"setMood('{mood}')")

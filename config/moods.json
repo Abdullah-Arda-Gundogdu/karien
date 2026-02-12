@@ -4,5 +4,8 @@
     "proud": "mood_proud",
     "sad": "mood_sad",
     "happy": "mood_happy",
-    "annoyed": "mood_annoyed"
+    "annoyed": "mood_annoyed",
+    "curious": "mood_curious",
+    "excited": "mood_excited",
+    "sleepy": "mood_sleepy"
 }

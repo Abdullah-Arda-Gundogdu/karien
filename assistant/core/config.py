@@ -83,6 +83,7 @@ class Config:
     def validate(cls):
         """
         Validates critical configuration.
+        Warns but does not crash — allows UI-only / text-only mode.
         """
         missing = []
         if not cls.OPENAI_API_KEY:
@@ -93,9 +94,6 @@ class Config:
             for key in missing:
                 print(f"  - {key}")
             print("Assistant may not function correctly (Brainless Mode).")
-            
-            # Raise error if strict mode is desired
-            raise ValueError(f"Missing config: {missing}")
 
 config = Config()
 config.validate()

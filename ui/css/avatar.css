@@ -35,6 +35,7 @@
     animation: orb-idle 4s ease-in-out infinite;
     position: relative;
     z-index: 2;
+    overflow: visible;
 }
 
 .orb-ring {
