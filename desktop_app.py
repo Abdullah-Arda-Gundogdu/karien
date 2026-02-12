@@ -6,7 +6,7 @@ from assistant.ui.api import KarienAPI
 
 # Get absolute path to the UI file
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ui_path = os.path.join(BASE_DIR, "ui_mockup.html")
+ui_path = os.path.join(BASE_DIR, "ui", "index.html")
 
 def on_closed():
     print("App closed")
@@ -27,8 +27,9 @@ def main():
         js_api=api
     )
 
-    # 3. Start the App
-    webview.start(debug=True)
+    # 3. Start the App (storage_path avoids temp folder cleanup warnings on Windows)
+    storage_path = os.path.join(BASE_DIR, ".webview_cache")
+    webview.start(debug=True, storage_path=storage_path)
 
 if __name__ == "__main__":
     main()

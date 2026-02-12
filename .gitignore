@@ -4,6 +4,7 @@ __pycache__/
 .env
 response.mp3
 .gemini/
+.webview_cache/
 
 # User-specific MCP configuration
 config/mcp_registry.json
