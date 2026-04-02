@@ -1,73 +1,130 @@
+"""
+Brain Module — Central LLM Orchestration Layer
+
+Implements Karien's three-tier cognitive architecture:
+  Tier 1 (Router)      → Intent classification (fast, small model)
+  Tier 2 (Worker)      → Task execution (capable model)
+  Tier 3 (Synthesizer) → Personality formatting (lightweight model)
+
+This modular design distributes the cognitive load across specialized
+models, drastically reducing hallucinations in tool-calling scenarios
+and stabilizing the overall response quality.
+
+Also supports "classic" single-model mode for backward compatibility.
+
+Inspired by the Harmony framework (Kawahara et al.) for modular,
+human-aware assistant architectures.
+"""
+
 import time
 import json
-import asyncio
-from openai import OpenAI
+import re
 from assistant.core.config import config
 from assistant.core.logging_config import logger
+from assistant.brain.providers.factory import create_provider, create_tier_providers
+from assistant.brain.router import Router, Intent
+from assistant.brain.worker import Worker
+from assistant.brain.synthesizer import Synthesizer
+
 
 class Brain:
+    """
+    Central cognitive coordinator for Karien.
+    
+    In three-tier mode:
+      User → Router (intent) → Worker (execution) → Synthesizer (personality) → TTS
+    
+    In classic mode:
+      User → Single LLM (everything) → TTS
+    
+    The mode is controlled by config.BRAIN_MODE ("three_tier" or "classic").
+    """
+    
     def __init__(self):
-        self.client = None
-        if config.OPENAI_API_KEY:
-            self.client = OpenAI(api_key=config.OPENAI_API_KEY)
-            logger.info("Brain initialized with OpenAI.")
-        else:
-            logger.warning("OPENAI_API_KEY not found. Brain will be lobotomized (dummy mode).")
-
+        self.mode = config.BRAIN_MODE  # "three_tier" or "classic"
+        
+        # Shared state
+        self.history = []
+        self._classic_client = None
+        
         # Load System Prompt
-        try:
-            prompt_path = config.SYSTEM_PROMPT_PATH
-            if prompt_path.exists():
-                self.system_prompt = prompt_path.read_text(encoding="utf-8")
-                logger.info(f"Loaded system prompt from {prompt_path}")
-            else:
-                logger.warning(f"System prompt file not found at {prompt_path}. Using minimal fallback.")
-                self.system_prompt = "You are a helpful assistant."
-        except Exception as e:
-            logger.error(f"Failed to load system prompt: {e}")
-            self.system_prompt = "You are a helpful assistant."
-
-        # Initialize History with the current date to help with calendar tasks
+        self.system_prompt = self._load_system_prompt()
+        
+        # Initialize History with date context
         current_date_context = f"\nCurrent Date/Time: {time.strftime('%Y-%m-%d %H:%M:%S')}"
         self.system_prompt += current_date_context
-
+        
         self.history = [
             {"role": "system", "content": self.system_prompt}
         ]
-
-    def chat(self, user_text: str) -> str:
-        """
-        Sends user text to LLM and returns response.
-        """
-        if not self.client:
-            return "[NEUTRAL] I have no brain (API Key missing). I can't think!"
-
-        self.history.append({"role": "user", "content": user_text})
+        
+        # Initialize based on mode
+        if self.mode == "three_tier":
+            self._init_three_tier()
+        else:
+            self._init_classic()
+    
+    def _load_system_prompt(self) -> str:
+        """Load the system prompt from file."""
+        try:
+            prompt_path = config.SYSTEM_PROMPT_PATH
+            if prompt_path.exists():
+                prompt = prompt_path.read_text(encoding="utf-8")
+                logger.info(f"Loaded system prompt from {prompt_path}")
+                return prompt
+            else:
+                logger.warning(f"System prompt not found at {prompt_path}")
+                return "You are a helpful assistant."
+        except Exception as e:
+            logger.error(f"Failed to load system prompt: {e}")
+            return "You are a helpful assistant."
+    
+    # ===================== THREE-TIER INITIALIZATION =====================
+    
+    def _init_three_tier(self):
+        """Initialize the three-tier cognitive architecture."""
+        logger.info("Initializing Brain in THREE-TIER mode")
         
         try:
-            response = self.client.chat.completions.create(
-                model=config.LLM_MODEL,
-                messages=self.history,
+            providers = create_tier_providers()
+            
+            self.router = Router(providers["router"])
+            self.worker = Worker(providers["worker"])
+            self.synthesizer = Synthesizer(providers["synthesizer"])
+            
+            # Also keep a reference to the worker provider for vision
+            self._worker_provider = providers["worker"]
+            
+            logger.info(
+                f"Three-tier architecture ready: "
+                f"Router({providers['router']}) → "
+                f"Worker({providers['worker']}) → "
+                f"Synthesizer({providers['synthesizer']})"
             )
-            
-            reply = response.choices[0].message.content
-            self.history.append({"role": "assistant", "content": reply})
-            
-            # Keep history manageable
-            if len(self.history) > config.HISTORY_MAX_SIZE:
-                self.history = [self.history[0]] + self.history[-config.HISTORY_KEEP_RECENT:]
-                
-            return reply
-            
         except Exception as e:
-            logger.error(f"LLM Error: {e}")
-            return "[SAD] Something went wrong in my head..."
+            logger.error(f"Three-tier initialization failed: {e}. Falling back to classic mode.")
+            self.mode = "classic"
+            self._init_classic()
+    
+    def _init_classic(self):
+        """Initialize classic single-model mode (backward compatible)."""
+        logger.info("Initializing Brain in CLASSIC mode")
+        
+        self.router = None
+        self.worker = None
+        self.synthesizer = None
+        
+        if config.OPENAI_API_KEY:
+            from openai import OpenAI
+            self._classic_client = OpenAI(api_key=config.OPENAI_API_KEY)
+            logger.info("Classic Brain initialized with OpenAI.")
+        else:
+            logger.warning("No API key found. Brain will be in dummy mode.")
+    
+    # ===================== TOOL DISCOVERY =====================
     
     def _get_all_tools(self) -> list[dict]:
-        """
-        Get all available tools: MCP tools + internal Karien-only tools.
-        """
-        # Karien-specific tools that need special handling in Brain/Orchestrator
+        """Get all available tools: MCP tools + internal Karien-only tools."""
         karien_tools = [
             {
                 "type": "function",
@@ -81,13 +138,12 @@ class Brain:
                 "type": "function",
                 "function": {
                     "name": "analyze_screen",
-                    "description": "Takes a screenshot and analyzes what is on the user's screen. Use this when user asks 'Look at this', 'What is on my screen?', 'Read this error'.",
+                    "description": "Takes a screenshot and analyzes what is on the user's screen.",
                     "parameters": {"type": "object", "properties": {}},
                 }
             },
         ]
 
-        # Get all tools from MCP manager (includes MCP servers + internal tools like Google)
         try:
             from assistant.mcp.manager import mcp_manager
             mcp_tools = mcp_manager.get_all_tools()
@@ -96,38 +152,164 @@ class Brain:
             logger.warning(f"Could not get MCP tools: {e}")
             mcp_tools = []
         
-        # MCP tools first, then Karien-specific tools
         return mcp_tools + karien_tools
-
+    
+    def _get_tool_names(self) -> list[str]:
+        """Get flat list of tool names for the Router."""
+        tools = self._get_all_tools()
+        return [t["function"]["name"] for t in tools if "function" in t]
+    
+    # ===================== THREE-TIER CHAT STREAM =====================
+    
     def chat_stream(self, user_text: str):
         """
-        Sends user text to LLM and yields chunks of response.
-        Handles Tool Calls (both MCP and Internal).
+        Main entry point for processing user messages.
+        
+        Routes to three-tier or classic pipeline based on config.
+        
+        Yields: (chunk_type, chunk_data) tuples
+            - ("CONTENT", text_chunk)
+            - ("TOOL", (tool_name, args_json))
         """
-        if not self.client:
+        if self.mode == "three_tier" and self.router:
+            yield from self._chat_stream_three_tier(user_text)
+        else:
+            yield from self._chat_stream_classic(user_text)
+    
+    def _chat_stream_three_tier(self, user_text: str):
+        """
+        Three-tier pipeline: Router → Worker → Synthesizer.
+        
+        Flow:
+        1. Router classifies intent (~100ms local, ~300ms cloud)
+        2. Worker executes the task based on intent
+        3. Synthesizer adds personality (skipped for tool-only responses)
+        """
+        self.history.append({"role": "user", "content": user_text})
+        
+        # ── Tier 1: Route ──
+        logger.info("── Tier 1: Router ──")
+        tool_names = self._get_tool_names()
+        router_result = self.router.classify(user_text, tool_names)
+        
+        # ── Tier 2: Work ──
+        logger.info(f"── Tier 2: Worker (intent={router_result.intent.value}) ──")
+        tools = self._get_all_tools()
+        
+        # For tool calls and non-streaming intents
+        if router_result.intent in (Intent.TOOL_CALL, Intent.SYSTEM, Intent.VISION):
+            worker_result = self.worker.execute(
+                user_text, router_result, self.history, tools
+            )
+            
+            # Handle tool calls
+            if worker_result.tool_calls:
+                # Format for history
+                formatted_tool_calls = []
+                for tc in worker_result.tool_calls:
+                    tc_id = tc.get("id", f"call_{hash(tc['name'])}")
+                    formatted_tool_calls.append({
+                        "id": tc_id,
+                        "type": "function",
+                        "function": {
+                            "name": tc["name"],
+                            "arguments": tc.get("arguments", "{}"),
+                        }
+                    })
+                
+                self.history.append({
+                    "role": "assistant",
+                    "content": worker_result.content or None,
+                    "tool_calls": formatted_tool_calls,
+                })
+                
+                # Yield tool calls
+                for tc in worker_result.tool_calls:
+                    args = tc.get("arguments", "{}")
+                    yield ("TOOL", (tc["name"], args))
+                
+                # Execute tools and add results to history
+                for tc in worker_result.tool_calls:
+                    tool_name = tc["name"]
+                    try:
+                        tool_args = json.loads(tc.get("arguments", "{}")) if isinstance(tc.get("arguments"), str) else tc.get("arguments", {})
+                    except json.JSONDecodeError:
+                        tool_args = {}
+                    
+                    tool_output = self._execute_tool_internal(tool_name, tool_args)
+                    
+                    tc_id = tc.get("id", f"call_{hash(tool_name)}")
+                    self.history.append({
+                        "role": "tool",
+                        "tool_call_id": tc_id,
+                        "name": tool_name,
+                        "content": str(tool_output),
+                    })
+                
+                # If there's also content, synthesize and yield it
+                if worker_result.content and worker_result.requires_synthesis:
+                    logger.info("── Tier 3: Synthesizer (post-tool) ──")
+                    synthesized = self.synthesizer.synthesize(worker_result.content, user_text)
+                    self.history.append({"role": "assistant", "content": synthesized})
+                    yield ("CONTENT", synthesized)
+                
+                self._trim_history()
+                return
+            
+            # Non-tool result (system command gave text response)
+            if worker_result.content and worker_result.requires_synthesis:
+                logger.info("── Tier 3: Synthesizer ──")
+                synthesized = self.synthesizer.synthesize(worker_result.content, user_text)
+                self.history.append({"role": "assistant", "content": synthesized})
+                yield ("CONTENT", synthesized)
+                self._trim_history()
+                return
+        
+        # For conversation and greeting — stream through Worker then Synthesize
+        # Stream worker output first, collect it, then synthesize
+        logger.info("── Tier 2: Worker (streaming conversation) ──")
+        full_worker_output = ""
+        
+        for chunk_type, chunk_data in self.worker.execute_stream(
+            user_text, router_result, self.history, tools
+        ):
+            if chunk_type == "CONTENT":
+                full_worker_output += chunk_data
+        
+        # ── Tier 3: Synthesize ──
+        if full_worker_output:
+            logger.info("── Tier 3: Synthesizer ──")
+            synthesized = self.synthesizer.synthesize(full_worker_output, user_text)
+            self.history.append({"role": "assistant", "content": synthesized})
+            yield ("CONTENT", synthesized)
+        
+        self._trim_history()
+    
+    # ===================== CLASSIC CHAT STREAM =====================
+    
+    def _chat_stream_classic(self, user_text: str):
+        """
+        Classic single-model pipeline (backward compatible).
+        Handles tool calls with the original multi-turn approach.
+        """
+        if not self._classic_client:
             yield ("CONTENT", "[NEUTRAL] I have no brain (API Key missing). I can't think!")
             return
 
         self.history.append({"role": "user", "content": user_text})
-        
-        # Build tools list
         tools = self._get_all_tools()
 
-        # Inner loop to handle tool outputs (Assistant -> Tool -> Assistant -> User)
-        # We allow up to 3 turns of tool usage per user message to prevent infinite loops
         MAX_TOOL_TURNS = 3
         
         for turn in range(MAX_TOOL_TURNS + 1):
-            
             full_response = ""
-            tool_calls = [] # Accumulate tool calls for this turn
+            tool_calls = []
             
             try:
-                # Simple Retry Logic
                 stream = None
                 for attempt in range(config.LLM_RETRY_COUNT):
                     try:
-                        stream = self.client.chat.completions.create(
+                        stream = self._classic_client.chat.completions.create(
                             model=config.LLM_MODEL,
                             messages=self.history,
                             tools=tools,
@@ -141,15 +323,12 @@ class Brain:
                             raise e
                         time.sleep(config.LLM_RETRY_DELAY)
 
-                # Stream Processing
                 for chunk in stream:
-                    # 1. Handle Content
                     if chunk.choices[0].delta.content:
                         content = chunk.choices[0].delta.content
                         full_response += content
                         yield ("CONTENT", content)
                     
-                    # 2. Handle Tool Calls
                     if chunk.choices[0].delta.tool_calls:
                         for tool_call in chunk.choices[0].delta.tool_calls:
                             if len(tool_calls) <= tool_call.index:
@@ -157,25 +336,15 @@ class Brain:
                             
                             if tool_call.id:
                                 tool_calls[tool_call.index]["id"] = tool_call.id
-                            
                             if tool_call.function.name:
                                 tool_calls[tool_call.index]["name"] += tool_call.function.name
-                            
                             if tool_call.function.arguments:
                                 tool_calls[tool_call.index]["arguments"] += tool_call.function.arguments
 
-                # End of stream for this turn
-                
-                # If no tool calls, we are done
                 if not tool_calls:
-                    # Save the assistant's final text reply to history
                     self.history.append({"role": "assistant", "content": full_response})
                     break 
 
-                # If tool calls existed:
-                # 1. Add the Assistant's "Call" message to history
-                # Ensure we have IDs for all calls (some streamed chunks might miss it if logic above is imperfect, but usually fine)
-                # We reconstruct the tool_calls object for history
                 formatted_tool_calls = []
                 for tc in tool_calls:
                     formatted_tool_calls.append({
@@ -189,11 +358,10 @@ class Brain:
                 
                 self.history.append({
                     "role": "assistant",
-                    "content": full_response or None, # Content can be null if only calling tools
+                    "content": full_response or None,
                     "tool_calls": formatted_tool_calls
                 })
 
-                # 2. Execute Tools and Collect Outputs
                 for tc in tool_calls:
                     tool_name = tc["name"]
                     try:
@@ -203,44 +371,10 @@ class Brain:
                         logger.error(f"Failed to parse arguments for {tool_name}")
 
                     logger.info(f"Executing Tool: {tool_name} with args {tool_args}")
-                    
-                    # Tell frontend we are running a tool
                     yield ("TOOL", (tool_name, json.dumps(tool_args)))
                     
-                    tool_output = "Tool execution failed."
+                    tool_output = self._execute_tool_internal(tool_name, tool_args)
                     
-                    # --- DISPATCH LOGIC ---
-                    
-                    # A. Karien-specific tools (need Brain/Orchestrator context)
-                    if tool_name == "stop_listening":
-                        tool_output = "Stopping assistant."
-                        
-                    elif tool_name == "analyze_screen":
-                        tool_output = "Screen analysis triggered."
-
-                    # B. All other tools (MCP + internal like Google) → MCPManager
-                    else:
-                        try:
-                            from assistant.mcp.manager import mcp_manager
-                            if mcp_manager.has_tool(tool_name):
-                                # Execute via manager (handles MCP tools + internal fallbacks)
-                                handler = mcp_manager._internal_tools.get(tool_name)
-                                if handler:
-                                    # Sync internal tool (like Google)
-                                    tool_output = handler(**tool_args)
-                                else:
-                                    # MCP tool - async, needs special handling
-                                    tool_output = "MCP Execution Pending (Async Architecture Required)"
-                            else:
-                                tool_output = f"Unknown tool: {tool_name}"
-                        except Exception as e:
-                            logger.error(f"Tool execution error: {e}")
-                            tool_output = f"Tool execution failed: {e}"
-
-                    # Yield result (optional, if you want UI to see it)
-                    # yield ("TOOL_RESULT", tool_output)
-                    
-                    # 3. Add Tool Output to History
                     self.history.append({
                         "role": "tool",
                         "tool_call_id": tc["id"],
@@ -248,49 +382,116 @@ class Brain:
                         "content": str(tool_output)
                     })
                     
-                # Loop continues to next turn to let LLM process the tool outputs
-                
             except Exception as e:
                 logger.error(f"LLM Stream Error: {e}")
                 yield ("CONTENT", "[SAD] I can't connect to my brain right now.")
                 break
-
+        
+        self._trim_history()
+    
+    # ===================== TOOL EXECUTION =====================
+    
+    def _execute_tool_internal(self, tool_name: str, tool_args: dict) -> str:
+        """
+        Internal tool execution for Brain-level tool calls.
+        Routes to MCP manager or handles Karien-specific tools.
+        """
+        if tool_name == "stop_listening":
+            return "Stopping assistant."
+        
+        elif tool_name == "analyze_screen":
+            return "Screen analysis triggered."
+        
+        else:
+            try:
+                from assistant.mcp.manager import mcp_manager
+                if mcp_manager.has_tool(tool_name):
+                    handler = mcp_manager._internal_tools.get(tool_name)
+                    if handler:
+                        return handler(**tool_args)
+                    else:
+                        return "MCP Execution Pending (Async Architecture Required)"
+                else:
+                    return f"Unknown tool: {tool_name}"
+            except Exception as e:
+                logger.error(f"Tool execution error: {e}")
+                return f"Tool execution failed: {e}"
+    
+    # ===================== VISION =====================
+    
     def analyze_image(self, base64_image: str):
         """
-        Sends an image to GPT-4o for analysis.
-        Returns the description text.
+        Sends an image to the vision model for analysis.
+        Uses Worker tier's provider in three-tier mode, or classic client.
         """
-        if not self.client:
-            return "I can't see anything (Brain disconnected)."
-
-        try:
-            # We don't stream this for simplicity, just get the description
-            logger.info("Sending image to Brain...")
-            response = self.client.chat.completions.create(
-                model=config.LLM_VISION_MODEL,
-                messages=[
+        vision_messages = [
+            {
+                "role": "system",
+                "content": "You are Karien. You are looking at the user's screen. "
+                           "Describe what you see or answer the user's question about the image directly. "
+                           "Keep it conversational."
+            },
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "What is on my screen? If there's an error, explain it."},
                     {
-                        "role": "system",
-                        "content": "You are Karien. You are looking at the user's screen. Describe what you see or answer the user's question about the image directly. Keep it conversational."
-                    },
-                    {
-                        "role": "user",
-                        "content": [
-                            {"type": "text", "text": "What is on my screen? If there's an error, explain it."},
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": f"data:image/png;base64,{base64_image}"
-                                }
-                            }
-                        ]
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/png;base64,{base64_image}"
+                        }
                     }
-                ],
-                max_tokens=300,
-            )
-            return response.choices[0].message.content
+                ]
+            }
+        ]
+        
+        try:
+            if self.mode == "three_tier" and self._worker_provider:
+                # Use worker provider for vision
+                response = self._worker_provider.complete(
+                    messages=vision_messages,
+                    stream=False,
+                    max_tokens=300,
+                )
+                raw_description = response.content
+                
+                # Synthesize the description with personality
+                if self.synthesizer:
+                    return self.synthesizer.synthesize(raw_description, "Ekranıma bak")
+                return raw_description
+            
+            elif self._classic_client:
+                # Classic mode
+                response = self._classic_client.chat.completions.create(
+                    model=config.LLM_VISION_MODEL,
+                    messages=vision_messages,
+                    max_tokens=300,
+                )
+                return response.choices[0].message.content
+            
+            else:
+                return "I can't see anything (Brain disconnected)."
+                
         except Exception as e:
             logger.error(f"Vision Error: {e}")
             return "My eyes are blurry... I couldn't analyze the image."
+    
+    # ===================== HISTORY MANAGEMENT =====================
+    
+    def _trim_history(self):
+        """Keep conversation history within size limits."""
+        if len(self.history) > config.HISTORY_MAX_SIZE:
+            self.history = [self.history[0]] + self.history[-config.HISTORY_KEEP_RECENT:]
+    
+    # ===================== LEGACY INTERFACE =====================
+    
+    def chat(self, user_text: str) -> str:
+        """Legacy synchronous chat (collects full streaming response)."""
+        full_response = ""
+        for chunk_type, chunk_data in self.chat_stream(user_text):
+            if chunk_type == "CONTENT":
+                full_response += chunk_data
+        return full_response or "[NEUTRAL] No response generated."
+
 
 brain = Brain()

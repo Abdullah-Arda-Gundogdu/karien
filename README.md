@@ -2,7 +2,8 @@
   <img src="https://img.shields.io/badge/python-3.10+-blue?logo=python&logoColor=white" />
   <img src="https://img.shields.io/badge/platform-Windows-0078D6?logo=windows&logoColor=white" />
   <img src="https://img.shields.io/badge/UI-pywebview-00D4FF?logo=googlechrome&logoColor=white" />
-  <img src="https://img.shields.io/badge/LLM-OpenAI-412991?logo=openai&logoColor=white" />
+  <img src="https://img.shields.io/badge/LLM-OpenAI%20%2B%20Ollama-412991?logo=openai&logoColor=white" />
+  <img src="https://img.shields.io/badge/architecture-Three--Tier-ff6b35" />
   <img src="https://img.shields.io/badge/license-MIT-green" />
 </p>
 
@@ -40,11 +41,38 @@ An animated orb with chibi-style facial features (eyes, eyebrows, mouth, blush) 
 - **Text-to-Speech** via ElevenLabs (high quality) or pyttsx3 (offline fallback)
 - **Interruption handling** — speak over Karien and she'll stop to listen
 
-### 🧠 LLM Brain
-- Powered by **OpenAI GPT-4o** (configurable model)
-- Streaming responses with sentence-level TTS pipelining
-- Automatic mood detection from `[mood]` tags in LLM output
-- Conversation history with smart truncation
+### 🧠 Three-Tier Cognitive Architecture
+Karien uses a **modular three-tier architecture** inspired by the [Harmony framework](https://arxiv.org/abs/2501.13444), distributing cognitive load across specialized models to reduce hallucinations and stabilize tool-calling:
+
+```
+User Message
+      │
+      ▼
+┌─────────────┐   Tier 1: Intent Router
+│   Router    │   Fast, small model (local or cloud)
+│             │   Classifies: TOOL_CALL | CONVERSATION | VISION | SYSTEM
+└──────┬──────┘
+       │
+       ▼
+┌─────────────┐   Tier 2: Task Worker
+│   Worker    │   Most capable model available
+│             │   Executes the narrowly-scoped task
+└──────┬──────┘
+       │
+       ▼
+┌─────────────┐   Tier 3: Response Synthesizer
+│ Synthesizer │   Lightweight model
+│             │   Adds Karien's personality + mood tags
+└─────────────┘
+```
+
+Each tier can use a **different provider and model** — for example, a local Llama 3 for routing and synthesis, with GPT-4o for complex task execution. This hybrid local+cloud approach optimizes both latency and capability.
+
+### 🏠 Local LLM Support
+Run Karien entirely on your own hardware with no cloud dependency:
+- **Ollama** — Supports Llama 3, Mistral, Qwen 2.5, Phi-3, and more
+- **LM Studio** — OpenAI-compatible local inference
+- **Hybrid mode** — Mix local models (Router, Synthesizer) with cloud APIs (Worker)
 
 ### 🔧 Skills & Tool Use
 Built-in skills that the LLM can invoke via function calling:
@@ -81,7 +109,16 @@ karien/
 │
 ├── assistant/              # Core backend
 │   ├── main.py             # CLI entry point (voice mode)
-│   ├── brain/              # LLM interaction (chat_stream, tool calls)
+│   ├── brain/              # Three-Tier Cognitive Architecture
+│   │   ├── llm.py          # Brain coordinator (Router → Worker → Synthesizer)
+│   │   ├── router.py       # Tier 1: Intent classification
+│   │   ├── worker.py       # Tier 2: Task execution
+│   │   ├── synthesizer.py  # Tier 3: Personality formatting
+│   │   └── providers/      # Multi-provider LLM abstraction
+│   │       ├── base.py     # Abstract LLMProvider interface
+│   │       ├── openai_provider.py   # OpenAI cloud wrapper
+│   │       ├── ollama_provider.py   # Ollama local wrapper
+│   │       └── factory.py  # Provider factory
 │   ├── core/               # Config, logging, orchestrator, auth
 │   ├── input/              # STT (Deepgram, Vosk), VAD, audio capture
 │   ├── output/             # TTS (ElevenLabs, pyttsx3), VTS client
@@ -126,7 +163,10 @@ karien/
 ### Prerequisites
 - **Python 3.10+**
 - **Windows 10/11** (some features use Windows-specific APIs)
-- An **OpenAI API key** (required)
+- **One of the following LLM backends:**
+  - OpenAI API key (cloud)
+  - [Ollama](https://ollama.com/) installed locally (free, local)
+  - [LM Studio](https://lmstudio.ai/) (free, local, GUI)
 - Optionally: Deepgram API key (STT), ElevenLabs API key (TTS)
 
 ### Installation
@@ -145,7 +185,18 @@ pip install -r requirements.txt
 
 # 4. Set up environment variables
 copy .env.example .env
-# Edit .env and add your API keys
+# Edit .env and configure your LLM provider (see Configuration below)
+```
+
+### Setting Up Local LLM (Optional)
+
+```bash
+# Install Ollama (https://ollama.com/download)
+# Then pull a model:
+ollama pull llama3          # For Router & Synthesizer tiers
+ollama pull llama3:70b      # For Worker tier (if you have enough VRAM)
+
+# Ollama will automatically serve on http://localhost:11434
 ```
 
 ### Running
@@ -164,14 +215,71 @@ python -m assistant.main
 
 ### Environment Variables (`.env`)
 
+#### Core Settings
+
 | Variable | Required | Description |
 |---|---|---|
-| `OPENAI_API_KEY` | ✅ | OpenAI API key for the LLM brain |
-| `LLM_MODEL` | ❌ | Model to use (default: `gpt-4o-mini`) |
+| `OPENAI_API_KEY` | ❌* | OpenAI API key (required if using OpenAI provider) |
+| `LLM_PROVIDER` | ❌ | Default provider: `openai`, `ollama`, `lmstudio` (default: `openai`) |
+| `LLM_MODEL` | ❌ | Default model (default: `gpt-4o-mini`) |
 | `DEEPGRAM_API_KEY` | ❌ | Deepgram key for live STT |
 | `ELEVENLABS_API_KEY` | ❌ | ElevenLabs key for high-quality TTS |
-| `ELEVENLABS_VOICE_ID` | ❌ | ElevenLabs voice ID |
-| `MIC_INDEX` | ❌ | Microphone device index (run `scripts/list_audio_devices.py` to find it) |
+
+\* *Required only when using OpenAI as your LLM provider. If using Ollama, no API key is needed.*
+
+#### Three-Tier Architecture
+
+| Variable | Default | Description |
+|---|---|---|
+| `BRAIN_MODE` | `three_tier` | Architecture mode: `three_tier` or `classic` |
+| `ROUTER_PROVIDER` | `openai` | Tier 1 provider (recommend: `ollama` for speed) |
+| `ROUTER_MODEL` | `gpt-4o-mini` | Tier 1 model (recommend: `llama3` locally) |
+| `WORKER_PROVIDER` | `openai` | Tier 2 provider (recommend: most capable available) |
+| `WORKER_MODEL` | `gpt-4o-mini` | Tier 2 model |
+| `SYNTHESIZER_PROVIDER` | `openai` | Tier 3 provider (recommend: `ollama` for speed) |
+| `SYNTHESIZER_MODEL` | `gpt-4o-mini` | Tier 3 model (recommend: `llama3` locally) |
+
+#### Ollama Settings
+
+| Variable | Default | Description |
+|---|---|---|
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server URL |
+| `OLLAMA_MODEL` | `llama3` | Default Ollama model |
+
+#### Example Configurations
+
+**Full Cloud (OpenAI only):**
+```env
+BRAIN_MODE=three_tier
+ROUTER_PROVIDER=openai
+ROUTER_MODEL=gpt-4o-mini
+WORKER_PROVIDER=openai
+WORKER_MODEL=gpt-4o
+SYNTHESIZER_PROVIDER=openai
+SYNTHESIZER_MODEL=gpt-4o-mini
+```
+
+**Hybrid (Local + Cloud):**
+```env
+BRAIN_MODE=three_tier
+ROUTER_PROVIDER=ollama
+ROUTER_MODEL=llama3
+WORKER_PROVIDER=openai
+WORKER_MODEL=gpt-4o
+SYNTHESIZER_PROVIDER=ollama
+SYNTHESIZER_MODEL=llama3
+```
+
+**Full Local (No API keys needed):**
+```env
+BRAIN_MODE=three_tier
+ROUTER_PROVIDER=ollama
+ROUTER_MODEL=llama3
+WORKER_PROVIDER=ollama
+WORKER_MODEL=llama3:70b
+SYNTHESIZER_PROVIDER=ollama
+SYNTHESIZER_MODEL=llama3
+```
 
 ### Console Slash Commands
 
@@ -220,7 +328,9 @@ The MCP catalog includes: **filesystem**, **web fetch**, **desktop automation**,
 
 | Layer | Technology |
 |---|---|
-| **LLM** | OpenAI GPT-4o / GPT-4o-mini |
+| **LLM (Cloud)** | OpenAI GPT-4o / GPT-4o-mini |
+| **LLM (Local)** | Ollama (Llama 3, Mistral, Qwen 2.5), LM Studio |
+| **Architecture** | Three-Tier: Router → Worker → Synthesizer |
 | **STT** | Deepgram (live), Vosk (offline wake word) |
 | **TTS** | ElevenLabs, pyttsx3 (fallback) |
 | **Desktop UI** | pywebview + HTML/CSS/JS |

@@ -55,6 +55,30 @@ class Config:
     LLM_VISION_MODEL = os.getenv("LLM_VISION_MODEL", "gpt-4o")
     LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.7"))
     
+    # LLM Provider (openai, ollama, lmstudio)
+    LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai")
+    
+    # Ollama Settings (for locally deployed models)
+    OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
+    
+    # Three-Tier Cognitive Architecture
+    # Mode: "three_tier" (Router→Worker→Synthesizer) or "classic" (single model)
+    BRAIN_MODE = os.getenv("BRAIN_MODE", "three_tier")
+    
+    # Per-Tier Provider & Model Configuration
+    # Router — fast intent classification (small/local model recommended)
+    ROUTER_PROVIDER = os.getenv("ROUTER_PROVIDER", "openai")
+    ROUTER_MODEL = os.getenv("ROUTER_MODEL", "gpt-4o-mini")
+    
+    # Worker — main task execution (most capable model)
+    WORKER_PROVIDER = os.getenv("WORKER_PROVIDER", "openai")
+    WORKER_MODEL = os.getenv("WORKER_MODEL", "gpt-4o-mini")
+    
+    # Synthesizer — personality formatting (lightweight model)
+    SYNTHESIZER_PROVIDER = os.getenv("SYNTHESIZER_PROVIDER", "openai")
+    SYNTHESIZER_MODEL = os.getenv("SYNTHESIZER_MODEL", "gpt-4o-mini")
+    
     # Conversation History Limits
     HISTORY_MAX_SIZE = int(os.getenv("HISTORY_MAX_SIZE", "20"))
     HISTORY_KEEP_RECENT = int(os.getenv("HISTORY_KEEP_RECENT", "10"))
