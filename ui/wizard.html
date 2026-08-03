@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Karien — Setup</title>
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/wizard.css">
+</head>
+<body>
+  <div class="wizard-overlay">
+    <div class="wizard-container">
+
+      <!-- Branding -->
+      <div class="wizard-branding">
+        <div class="brand-name">Karien</div>
+        <div class="brand-tagline">Let's get you set up ✨</div>
+      </div>
+
+      <!-- Progress -->
+      <div class="wizard-progress">
+        <div class="progress-dot active" id="progress-dot-0"></div>
+        <div class="progress-connector" id="progress-conn-0"></div>
+        <div class="progress-dot" id="progress-dot-1"></div>
+        <div class="progress-connector" id="progress-conn-1"></div>
+        <div class="progress-dot" id="progress-dot-2"></div>
+      </div>
+
+      <!-- Steps -->
+      <div class="wizard-steps">
+
+        <!-- STEP 0: STT -->
+        <div class="wizard-step active" id="wizard-step-0">
+          <div class="step-header">
+            <span class="step-emoji">🎙️</span>
+            <h2 class="step-title">Choose your ears</h2>
+            <p class="step-subtitle">Pick how Karien listens to you</p>
+          </div>
+          <div class="provider-cards" id="step-0-cards"></div>
+        </div>
+
+        <!-- STEP 1: LLM -->
+        <div class="wizard-step" id="wizard-step-1">
+          <div class="step-header">
+            <span class="step-emoji">🧠</span>
+            <h2 class="step-title">Choose your brain</h2>
+            <p class="step-subtitle">Pick the AI model that powers Karien's thinking</p>
+          </div>
+          <div class="provider-cards" id="step-1-cards"></div>
+        </div>
+
+        <!-- STEP 2: TTS -->
+        <div class="wizard-step" id="wizard-step-2">
+          <div class="step-header">
+            <span class="step-emoji">🗣️</span>
+            <h2 class="step-title">Choose your voice</h2>
+            <p class="step-subtitle">Pick how Karien speaks back to you</p>
+          </div>
+          <div class="provider-cards" id="step-2-cards"></div>
+        </div>
+
+      </div>
+
+      <!-- Navigation -->
+      <div class="wizard-nav">
+        <button class="wizard-btn secondary" id="wizard-prev" onclick="prevStep()" style="display:none;">
+          ← Back
+        </button>
+        <span class="step-counter" id="step-counter">Step 1 of 3</span>
+        <button class="wizard-btn primary" id="wizard-next" onclick="nextStep()">
+          Next →
+        </button>
+        <button class="wizard-btn finish" id="wizard-finish" onclick="finishWizard()" style="display:none;">
+          Let's Go! 🚀
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="js/wizard.js"></script>
+</body>
+</html>

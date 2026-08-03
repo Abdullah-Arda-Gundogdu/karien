@@ -6,8 +6,19 @@ from assistant.core.config import config
 from assistant.core.logging_config import logger
 
 class Brain:
+
+    # Provider → OpenAI-compatible base URL mapping
+    PROVIDER_CONFIGS = {
+        'OpenAI': {'base_url': None},  # default
+        'Groq': {'base_url': 'https://api.groq.com/openai/v1'},
+        'Ollama (Local)': {'base_url': 'http://localhost:11434/v1'},
+        'Anthropic': {'base_url': None},  # needs separate handling in future
+    }
+
     def __init__(self):
         self.client = None
+        self._provider = 'OpenAI'
+
         if config.OPENAI_API_KEY:
             self.client = OpenAI(api_key=config.OPENAI_API_KEY)
             logger.info("Brain initialized with OpenAI.")
@@ -34,6 +45,48 @@ class Brain:
         self.history = [
             {"role": "system", "content": self.system_prompt}
         ]
+
+    def reconfigure(self, provider: str, model: str = None, api_key: str = None, base_url: str = None):
+        """
+        Switch the LLM provider/model at runtime.
+        Works for OpenAI-compatible APIs (OpenAI, Groq, Ollama).
+        """
+        try:
+            provider_cfg = self.PROVIDER_CONFIGS.get(provider, {})
+            effective_base_url = base_url or provider_cfg.get('base_url')
+
+            # Determine API key
+            if api_key:
+                effective_key = api_key
+            elif provider == 'Groq':
+                effective_key = getattr(config, 'GROQ_API_KEY', None) or 'not-needed'
+            elif provider == 'Ollama (Local)':
+                effective_key = 'ollama'  # Ollama doesn't need a real key
+            else:
+                effective_key = config.OPENAI_API_KEY
+
+            if not effective_key:
+                logger.error(f"No API key available for provider {provider}")
+                return False
+
+            # Create new client
+            client_kwargs = {'api_key': effective_key}
+            if effective_base_url:
+                client_kwargs['base_url'] = effective_base_url
+
+            self.client = OpenAI(**client_kwargs)
+            self._provider = provider
+
+            # Update model in config
+            if model:
+                config.LLM_MODEL = model
+
+            logger.info(f"Brain reconfigured: provider={provider}, model={model or config.LLM_MODEL}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Brain reconfigure failed: {e}")
+            return False
 
     def chat(self, user_text: str) -> str:
         """

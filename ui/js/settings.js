@@ -15,7 +15,8 @@ async function initSettings() {
             renderLLMConfig(),
             renderMCPServers(),
             renderAudioConfig(),
-            renderVoiceConfig()
+            renderVoiceConfig(),
+            renderAPIKeys()
         ]);
     } catch (e) {
         console.error('Settings init error:', e);
@@ -279,6 +280,104 @@ function initSettingsMock() {
 
     // Bind section collapse
     bindSectionCollapse();
+}
+
+// ═══════════════════════════════════════
+//  API KEYS
+// ═══════════════════════════════════════
+
+const API_KEY_LABELS = {
+    'OPENAI_API_KEY': { label: 'OpenAI API Key', icon: '🤖' },
+    'DEEPGRAM_API_KEY': { label: 'Deepgram API Key', icon: '🎙️' },
+    'ELEVENLABS_API_KEY': { label: 'ElevenLabs API Key', icon: '🗣️' },
+    'ELEVENLABS_VOICE_ID': { label: 'ElevenLabs Voice ID', icon: '🎭' },
+    'ELEVENLABS_MODEL_ID': { label: 'ElevenLabs Model ID', icon: '🔧' },
+    'GROQ_API_KEY': { label: 'Groq API Key', icon: '⚡' },
+    'ANTHROPIC_API_KEY': { label: 'Anthropic API Key', icon: '🧠' },
+    'GOOGLE_APPLICATION_CREDENTIALS': { label: 'Google Credentials Path', icon: '☁️' },
+    'SPOTIFY_CLIENT_ID': { label: 'Spotify Client ID', icon: '🎵' },
+    'SPOTIFY_CLIENT_SECRET': { label: 'Spotify Client Secret', icon: '🔐' }
+};
+
+async function renderAPIKeys() {
+    try {
+        const keys = await pywebview.api.get_api_keys();
+        const container = document.getElementById('api-keys-list');
+        if (!container) return;
+
+        container.innerHTML = '';
+
+        Object.keys(keys).forEach(keyName => {
+            const keyData = keys[keyName];
+            const meta = API_KEY_LABELS[keyName] || { label: keyName, icon: '🔑' };
+
+            const row = document.createElement('div');
+            row.className = 'mcp-item';
+            row.style.flexDirection = 'column';
+            row.style.alignItems = 'stretch';
+            row.style.gap = '8px';
+
+            const headerRow = document.createElement('div');
+            headerRow.style.display = 'flex';
+            headerRow.style.alignItems = 'center';
+            headerRow.style.gap = '10px';
+
+            const statusDot = keyData.has_value
+                ? '<span style="color: var(--accent-green); font-size: 8px;">●</span>'
+                : '<span style="color: var(--accent-red); font-size: 8px;">●</span>';
+
+            headerRow.innerHTML = `
+                <span style="font-size: 16px;">${meta.icon}</span>
+                <span class="mcp-name">${meta.label}</span>
+                ${statusDot}
+                <span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); flex: 2; text-align: right;">${keyData.masked || 'Not set'}</span>
+            `;
+
+            const inputRow = document.createElement('div');
+            inputRow.style.display = 'flex';
+            inputRow.style.gap = '8px';
+            inputRow.style.alignItems = 'center';
+
+            const input = document.createElement('input');
+            input.type = keyName.includes('KEY') || keyName.includes('SECRET') ? 'password' : 'text';
+            input.className = 'form-select';
+            input.style.flex = '1';
+            input.style.maxWidth = 'none';
+            input.style.fontFamily = 'var(--font-mono)';
+            input.style.fontSize = '12px';
+            input.placeholder = keyData.has_value ? 'Enter new value to update...' : 'Enter value...';
+
+            const saveBtn = document.createElement('button');
+            saveBtn.className = 'connect-btn';
+            saveBtn.textContent = '💾 Save';
+            saveBtn.onclick = async () => {
+                const val = input.value.trim();
+                if (!val) return;
+                saveBtn.textContent = '⏳';
+                try {
+                    await pywebview.api.set_api_key(keyName, val);
+                    saveBtn.textContent = '✅';
+                    input.value = '';
+                    setTimeout(() => {
+                        saveBtn.textContent = '💾 Save';
+                        renderAPIKeys(); // Refresh to show updated masked value
+                    }, 1500);
+                } catch (e) {
+                    saveBtn.textContent = '❌ Error';
+                    setTimeout(() => saveBtn.textContent = '💾 Save', 2000);
+                }
+            };
+
+            inputRow.appendChild(input);
+            inputRow.appendChild(saveBtn);
+
+            row.appendChild(headerRow);
+            row.appendChild(inputRow);
+            container.appendChild(row);
+        });
+    } catch (e) {
+        console.warn('Failed to load API keys:', e);
+    }
 }
 
 // ═══════════════════════════════════════

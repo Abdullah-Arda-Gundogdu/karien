@@ -1,60 +1,78 @@
 {
-    "llm": {
-        "provider": "OpenAI",
-        "model": "gpt-4o",
-        "temperature": 0.7,
-        "providers": [
-            "OpenAI",
-            "Groq",
-            "Anthropic",
-            "Ollama (Local)"
-        ],
-        "models": {
-            "OpenAI": [
-                "gpt-4o",
-                "gpt-4o-mini",
-                "gpt-3.5-turbo"
-            ],
-            "Groq": [
-                "llama-3.3-70b-versatile",
-                "llama-3.1-8b-instant",
-                "mixtral-8x7b-32768"
-            ],
-            "Anthropic": [
-                "claude-sonnet-4-20250514",
-                "claude-3-5-haiku-20241022"
-            ],
-            "Ollama (Local)": [
-                "llama3.2",
-                "mistral",
-                "gemma2"
-            ]
-        }
-    },
-    "audio": {
-        "currentDevice": "Default",
-        "devices": [
-            "Default"
-        ],
-        "currentWakeWord": "Karien",
-        "wakeWords": [
-            "Karien",
-            "Hey Karien"
-        ]
-    },
-    "voice": {
-        "currentEngine": "Google Cloud TTS",
-        "engines": [
-            "Google Cloud TTS",
-            "ElevenLabs",
-            "System TTS"
-        ],
-        "currentVoice": "tr-TR-Wavenet-A (Female)",
-        "voices": [
-            "tr-TR-Wavenet-A (Female)",
-            "tr-TR-Wavenet-B (Male)",
-            "en-US-Neural2-F (Female)"
-        ],
-        "speed": 1.0
+  "wizard_completed": false,
+  "stt": {
+    "provider": "Vosk (Local)",
+    "providers": [
+      "Deepgram",
+      "Whisper (OpenAI)",
+      "Vosk (Local)"
+    ]
+  },
+  "llm": {
+    "provider": "Ollama (Local)",
+    "model": "llama3.2",
+    "temperature": 0.7,
+    "providers": [
+      "OpenAI",
+      "Groq",
+      "Anthropic",
+      "Ollama (Local)"
+    ],
+    "models": {
+      "OpenAI": [
+        "gpt-4o",
+        "gpt-4o-mini",
+        "gpt-3.5-turbo"
+      ],
+      "Groq": [
+        "llama-3.3-70b-versatile",
+        "llama-3.1-8b-instant",
+        "mixtral-8x7b-32768"
+      ],
+      "Anthropic": [
+        "claude-sonnet-4-20250514",
+        "claude-3-5-haiku-20241022"
+      ],
+      "Ollama (Local)": [
+        "llama3.2",
+        "mistral",
+        "gemma2"
+      ]
     }
+  },
+  "audio": {
+    "currentDevice": "Default",
+    "devices": [
+      "Default"
+    ],
+    "currentWakeWord": "Karien",
+    "wakeWords": [
+      "Karien",
+      "Hey Karien"
+    ]
+  },
+  "tts": {
+    "provider": "System TTS",
+    "providers": [
+      "OpenAI TTS",
+      "ElevenLabs",
+      "Google Cloud TTS",
+      "System TTS"
+    ]
+  },
+  "voice": {
+    "currentEngine": "Google Cloud TTS",
+    "engines": [
+      "Google Cloud TTS",
+      "ElevenLabs",
+      "System TTS"
+    ],
+    "currentVoice": "tr-TR-Wavenet-A (Female)",
+    "voices": [
+      "tr-TR-Wavenet-A (Female)",
+      "tr-TR-Wavenet-B (Male)",
+      "en-US-Neural2-F (Female)"
+    ],
+    "speed": 1.0
+  }
 }
