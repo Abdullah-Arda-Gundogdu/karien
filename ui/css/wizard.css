@@ -1,0 +1,494 @@
+/* ═══════════════════════════════════════
+   Karien — Setup Wizard
+   ═══════════════════════════════════════ */
+
+.wizard-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-deep);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.wizard-container {
+  width: 560px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* ───── PROGRESS DOTS ───── */
+.wizard-progress {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 32px;
+}
+
+.progress-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--border);
+  transition: all 0.4s ease;
+  position: relative;
+}
+
+.progress-dot.active {
+  background: var(--accent);
+  box-shadow: 0 0 12px var(--accent-glow);
+  transform: scale(1.2);
+}
+
+.progress-dot.done {
+  background: var(--accent-green);
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.4);
+}
+
+.progress-connector {
+  width: 40px;
+  height: 2px;
+  background: var(--border);
+  align-self: center;
+  border-radius: 1px;
+  transition: background 0.4s ease;
+}
+
+.progress-connector.done {
+  background: var(--accent-green);
+}
+
+/* ───── STEP CONTAINER ───── */
+.wizard-steps {
+  position: relative;
+  flex: 1;
+}
+
+.wizard-step {
+  display: none;
+  flex-direction: column;
+  opacity: 0;
+  transform: translateX(60px);
+  transition: opacity 0.45s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.wizard-step::-webkit-scrollbar {
+  width: 4px;
+}
+
+.wizard-step::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
+
+.wizard-step.active {
+  display: flex;
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.wizard-step.exit-left {
+  opacity: 0;
+  transform: translateX(-60px);
+}
+
+/* ───── STEP HEADER ───── */
+.step-header {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.step-emoji {
+  font-size: 48px;
+  display: block;
+  margin-bottom: 12px;
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.step-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.step-subtitle {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+/* ───── PROVIDER CARDS ───── */
+.provider-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.provider-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.provider-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius);
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+  background: radial-gradient(ellipse at top left, var(--accent-dim), transparent 70%);
+}
+
+.provider-card:hover {
+  border-color: #3a3a5a;
+  transform: translateY(-1px);
+}
+
+.provider-card.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 20px var(--accent-dim), inset 0 1px 0 rgba(0, 212, 255, 0.1);
+  overflow: visible;
+}
+
+.provider-card.selected::before {
+  opacity: 1;
+}
+
+.provider-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.provider-radio {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  flex-shrink: 0;
+  transition: all 0.3s;
+  position: relative;
+}
+
+.provider-card.selected .provider-radio {
+  border-color: var(--accent);
+}
+
+.provider-card.selected .provider-radio::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent-glow);
+}
+
+.provider-name {
+  font-size: 15px;
+  font-weight: 600;
+  flex: 1;
+}
+
+.provider-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-left: 30px;
+  line-height: 1.5;
+}
+
+/* ───── DIFFICULTY BADGES ───── */
+.difficulty-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+
+.difficulty-badge.easy {
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--accent-green);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.difficulty-badge.medium {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--accent-orange);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.difficulty-badge.hard {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--accent-red);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* ───── WARNING CALLOUT ───── */
+.provider-warning {
+  margin: 8px 0 0 30px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  line-height: 1.6;
+  display: none;
+}
+
+.provider-card.selected .provider-warning {
+  display: block;
+}
+
+.provider-warning.warn-medium {
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  color: var(--accent-orange);
+}
+
+.provider-warning.warn-hard {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: var(--accent-red);
+}
+
+/* ───── API KEY INPUT ───── */
+.provider-config {
+  margin-top: 12px;
+  margin-left: 30px;
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+  animation: slideDown 0.3s ease;
+}
+
+.provider-card.selected .provider-config {
+  display: flex;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.config-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.config-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.config-input {
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font-mono);
+  outline: none;
+  transition: border-color 0.2s;
+  width: 100%;
+}
+
+.config-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 8px var(--accent-dim);
+}
+
+.config-input::placeholder {
+  color: var(--text-dim);
+}
+
+.config-hint {
+  font-size: 10px;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+.config-hint a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+/* ───── OFFLINE BADGE ───── */
+.offline-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--accent-green);
+  background: rgba(34, 197, 94, 0.1);
+  padding: 2px 8px;
+  border-radius: 8px;
+  margin-left: 30px;
+  margin-top: 6px;
+}
+
+/* ───── NAVIGATION BUTTONS ───── */
+.wizard-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.wizard-btn {
+  padding: 12px 28px;
+  border-radius: 24px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: var(--font-main);
+  cursor: pointer;
+  transition: all 0.3s;
+  border: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wizard-btn.secondary {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.wizard-btn.secondary:hover {
+  border-color: var(--text-secondary);
+  color: var(--text-primary);
+}
+
+.wizard-btn.primary {
+  background: linear-gradient(135deg, var(--accent), #0099cc);
+  color: #000;
+  box-shadow: 0 4px 20px var(--accent-dim);
+}
+
+.wizard-btn.primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 25px var(--accent-glow);
+}
+
+.wizard-btn.primary:active {
+  transform: translateY(0);
+}
+
+.wizard-btn.finish {
+  background: linear-gradient(135deg, var(--accent-green), #15803d);
+  color: #fff;
+  box-shadow: 0 4px 20px rgba(34, 197, 94, 0.3);
+  padding: 14px 36px;
+  font-size: 16px;
+}
+
+.wizard-btn.finish:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 25px rgba(34, 197, 94, 0.4);
+}
+
+.wizard-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* ───── STEP COUNTER ───── */
+.step-counter {
+  font-size: 12px;
+  color: var(--text-dim);
+  font-weight: 500;
+}
+
+/* ───── WELCOME BRANDING ───── */
+.wizard-branding {
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.wizard-branding .brand-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+
+.wizard-branding .brand-tagline {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+/* ───── VALIDATION ERROR ───── */
+.config-input.error {
+  border-color: var(--accent-red);
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.2);
+  animation: shake 0.4s ease;
+}
+
+@keyframes shake {
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  25% {
+    transform: translateX(-4px);
+  }
+
+  75% {
+    transform: translateX(4px);
+  }
+}
+
+.validation-msg {
+  font-size: 11px;
+  color: var(--accent-red);
+  display: none;
+  margin-top: 2px;
+}
+
+.validation-msg.show {
+  display: block;
+}

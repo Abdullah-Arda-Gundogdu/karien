@@ -27,6 +27,7 @@ let _currentState = 'idle';
  */
 function initAvatar() {
     createParticles();
+    initCursorTracking();
 }
 
 /**
@@ -119,4 +120,40 @@ function createParticles() {
 function toggleMute(btn) {
     const muted = btn.textContent.includes('Unmute');
     btn.innerHTML = muted ? '🎤 Mute' : '🔇 Unmute';
+}
+
+// ═══════════════════════════════════════
+//  CURSOR TRACKING (Eyes follow mouse)
+// ═══════════════════════════════════════
+
+const MOODS_WITH_CLOSED_EYES = ['happy', 'annoyed', 'sleepy', 'excited', 'proud'];
+
+function initCursorTracking() {
+    const orb = document.querySelector('.orb');
+    if (!orb) return;
+
+    document.addEventListener('mousemove', (e) => {
+        // Skip if eyes are closed/hidden
+        if (MOODS_WITH_CLOSED_EYES.includes(_currentMood)) return;
+
+        const rect = orb.getBoundingClientRect();
+        const orbCenterX = rect.left + rect.width / 2;
+        const orbCenterY = rect.top + rect.height / 2;
+
+        // Direction from orb center to cursor
+        const dx = e.clientX - orbCenterX;
+        const dy = e.clientY - orbCenterY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        // Normalize and clamp movement (max 3px offset)
+        const maxOffset = 3;
+        const factor = Math.min(distance / 200, 1);
+        const moveX = (dx / (distance || 1)) * maxOffset * factor;
+        const moveY = (dy / (distance || 1)) * maxOffset * factor;
+
+        // Apply to all pupils
+        document.querySelectorAll('.pupil').forEach(pupil => {
+            pupil.style.transform = `translateX(calc(-50% + ${moveX}px)) translateY(${moveY}px)`;
+        });
+    });
 }
