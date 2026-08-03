@@ -49,7 +49,7 @@ Your ONLY job is to classify the user's message into one of these intents:
 - "greeting": User says hello, casual opener, small talk
 
 Respond with ONLY a JSON object, no other text:
-{"intent": "<intent>", "confidence": <0.0-1.0>, "suggested_tool": "<tool_name_or_null>", "reasoning": "<brief_reason>"}
+{{"intent": "<intent>", "confidence": <0.0-1.0>, "suggested_tool": "<tool_name_or_null>", "reasoning": "<brief_reason>"}}
 
 Available tools for reference (use these names in suggested_tool):
 {tool_list}
