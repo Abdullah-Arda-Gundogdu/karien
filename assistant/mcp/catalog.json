@@ -89,6 +89,48 @@
                     }
                 }
             }
+        },
+        {
+            "id": "spotify",
+            "name": "Spotify",
+            "description": "Control Spotify playback and search",
+            "command": "npx -y replace-with-spotify-mcp-package",
+            "platforms": [
+                "windows",
+                "darwin"
+            ],
+            "category": "entertainment",
+            "recommended": false,
+            "config_schema": {
+                "env": {
+                    "SPOTIFY_CLIENT_ID": {
+                        "label": "Client ID",
+                        "description": "Spotify Client ID",
+                        "type": "string",
+                        "required": true,
+                        "secret": true
+                    },
+                    "SPOTIFY_CLIENT_SECRET": {
+                        "label": "Client Secret",
+                        "description": "Spotify Client Secret",
+                        "type": "string",
+                        "required": true,
+                        "secret": true
+                    }
+                }
+            }
+        },
+        {
+            "id": "chrome-devtools",
+            "name": "Chrome DevTools",
+            "description": "Control Chrome DevTools for browser automation",
+            "command": "npx -y chrome-devtools-mcp@latest",
+            "platforms": [
+                "windows",
+                "darwin"
+            ],
+            "category": "developer_tools",
+            "recommended": false
         }
     ]
 }
