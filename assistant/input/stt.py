@@ -81,7 +81,7 @@ class DeepgramSTT:
             channels=self.channels,
             interim_results=True,
             vad_events=True,
-            endpointing=600
+            endpointing=1500  # ms of silence before ending utterance
         ) as socket:
             
             async def sender():
@@ -242,7 +242,7 @@ class DeepgramSTT:
             channels=self.channels,
             interim_results=True,
             vad_events=True,
-            endpointing=600
+            endpointing=1500  # ms of silence before ending utterance
         ) as socket:
             
             async def sender():
