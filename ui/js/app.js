@@ -150,7 +150,7 @@ document.addEventListener('DOMContentLoaded', () => {
             setInterval(pollStatus, STATUS_POLL_MS);
         });
     } else {
-        // Running in a normal browser (dev/preview mode) — use mock data
-        initSettingsMock();
+        // Running in a normal browser (dev/preview mode) — honest empty states
+        initSettingsPreview();
     }
 });

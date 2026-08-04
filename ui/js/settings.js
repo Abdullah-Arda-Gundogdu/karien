@@ -1,8 +1,16 @@
 /**
  * Karien — Settings Module
- * 
- * Dynamically renders all settings sections from backend data.
- * Each section is populated via pywebview.api calls.
+ *
+ * Renders the settings sections from live backend data:
+ *   Yapay Zeka      → get_llm_config / set_llm_config  (.env, restart chip)
+ *   Araçlar (MCP)   → get_mcp_servers / toggle_mcp     (live)
+ *   Ses Girişi      → get_audio_devices / set_audio_device (.env, restart chip)
+ *   Ses Çıkışı      → get_tts_status                   (read-only chip)
+ *   Avatar          → get_avatar + applySkin           (live, js/avatar.js)
+ *   API Anahtarları → get_api_keys / set_api_key       (.env)
+ *
+ * In browser preview (no pywebview) initSettingsPreview shows honest
+ * empty-states — no fake data.
  */
 
 // ═══════════════════════════════════════
@@ -12,10 +20,10 @@
 async function initSettings() {
     try {
         await Promise.all([
-            renderLLMConfig(),
+            renderAIConfig(),
             renderMCPServers(),
-            renderAudioConfig(),
-            renderVoiceConfig(),
+            renderAudioInput(),
+            renderAudioOutput(),
             renderAvatarConfig(),
             renderAPIKeys()
         ]);
@@ -23,79 +31,68 @@ async function initSettings() {
         console.error('Settings init error:', e);
     }
 
-    // Bind section collapse
     bindSectionCollapse();
 }
 
-// ───── LLM CONFIGURATION ─────
+// ───── YAPAY ZEKA (LLM → .env, restart gerekir) ─────
 
-async function renderLLMConfig() {
+async function renderAIConfig() {
     try {
         const config = await pywebview.api.get_llm_config();
 
         const providerSelect = document.getElementById('llm-provider');
-        const modelSelect = document.getElementById('llm-model');
+        const modelInput = document.getElementById('llm-model');
         const tempSlider = document.getElementById('llm-temperature');
         const tempValue = document.getElementById('llm-temp-value');
 
-        // Populate providers
         if (providerSelect && config.providers) {
-            providerSelect.innerHTML = config.providers.map(p =>
-                `<option ${p === config.provider ? 'selected' : ''}>${p}</option>`
-            ).join('');
-
-            providerSelect.addEventListener('change', () => {
-                updateModelsForProvider(providerSelect.value);
-                saveLLMConfig();
+            providerSelect.innerHTML = '';
+            config.providers.forEach((p) => {
+                const opt = document.createElement('option');
+                opt.value = p;
+                opt.textContent = t('settings.provider.' + p);
+                opt.selected = (p === config.provider);
+                providerSelect.appendChild(opt);
             });
+            providerSelect.addEventListener('change', saveAIConfig);
         }
 
-        // Populate models
-        if (modelSelect && config.models) {
-            const models = config.models[config.provider] || [];
-            modelSelect.innerHTML = models.map(m =>
-                `<option ${m === config.model ? 'selected' : ''}>${m}</option>`
-            ).join('');
-
-            modelSelect.addEventListener('change', saveLLMConfig);
+        if (modelInput) {
+            modelInput.value = config.model || '';
+            modelInput.addEventListener('change', saveAIConfig);
         }
 
         // Temperature (display sync is bound once in bindSettingsStatic)
-        if (tempSlider) {
-            tempSlider.value = Math.round((config.temperature || 0.7) * 100);
-            tempValue.textContent = (config.temperature || 0.7).toFixed(2);
-            tempSlider.addEventListener('change', saveLLMConfig);
+        if (tempSlider && tempValue) {
+            const temp = typeof config.temperature === 'number' ? config.temperature : 0.7;
+            tempSlider.value = Math.round(temp * 100);
+            tempValue.textContent = temp.toFixed(2);
+            tempSlider.addEventListener('change', saveAIConfig);
         }
     } catch (e) {
         console.warn('LLM config load failed:', e);
     }
 }
 
-async function updateModelsForProvider(provider) {
-    try {
-        const config = await pywebview.api.get_llm_config();
-        const modelSelect = document.getElementById('llm-model');
-        const models = config.models[provider] || [];
-        modelSelect.innerHTML = models.map(m => `<option>${m}</option>`).join('');
-    } catch (e) {
-        console.warn('Failed to update models:', e);
-    }
-}
-
-async function saveLLMConfig() {
+async function saveAIConfig() {
     const provider = document.getElementById('llm-provider')?.value;
-    const model = document.getElementById('llm-model')?.value;
+    const model = document.getElementById('llm-model')?.value.trim();
     const tempSlider = document.getElementById('llm-temperature');
     const temperature = tempSlider ? tempSlider.value / 100 : 0.7;
 
     try {
-        await pywebview.api.set_llm_config({ provider, model, temperature });
+        const res = await pywebview.api.set_llm_config({ provider, model, temperature });
+        if (res && res.success) {
+            showToast(t('settings.savedRestart'), 'success');
+        } else {
+            showToast(t('settings.saveFail', { error: (res && res.error) || '?' }), 'error');
+        }
     } catch (e) {
-        console.warn('Failed to save LLM config:', e);
+        showToast(t('settings.saveFail', { error: e }), 'error');
     }
 }
 
-// ───── MCP SERVERS ─────
+// ───── ARAÇLAR (MCP) ─────
 
 async function renderMCPServers() {
     try {
@@ -105,108 +102,148 @@ async function renderMCPServers() {
 
         container.innerHTML = '';
 
-        if (servers.length === 0) {
-            container.innerHTML = '<div style="color: var(--text-dim); padding: 12px;">' + t('settings.mcp.none') + '</div>';
+        if (!servers || servers.length === 0) {
+            appendEmptyNote(container, t('settings.mcp.none'));
             return;
         }
 
-        servers.forEach(mcp => {
-            const item = document.createElement('div');
-            item.className = 'mcp-item';
-            item.innerHTML = `
-        <div class="mcp-toggle ${mcp.enabled ? 'on' : ''}"
-             data-mcp-id="${mcp.id}"></div>
-        <span class="mcp-name">${mcp.name}</span>
-        <span class="mcp-desc">${mcp.description || ''}</span>
-        <span class="mcp-status ${mcp.enabled ? 'connected' : 'disabled'}">
-          ${mcp.enabled ? t('settings.mcp.enabled') : t('settings.mcp.disabled')}
-        </span>
-      `;
-            const toggle = item.querySelector('.mcp-toggle');
-            toggle.addEventListener('click', () => handleMCPToggle(toggle));
-            container.appendChild(item);
-        });
+        servers.forEach((mcp) => container.appendChild(buildMCPRow(mcp)));
     } catch (e) {
         console.warn('MCP servers load failed:', e);
     }
 }
 
-async function handleMCPToggle(toggleEl) {
-    toggleEl.classList.toggle('on');
-    const mcpId = toggleEl.dataset.mcpId;
-    const enabled = toggleEl.classList.contains('on');
+function buildMCPRow(mcp) {
+    const item = document.createElement('div');
+    item.className = 'mcp-item';
 
-    // Update status badge
-    const statusEl = toggleEl.parentElement.querySelector('.mcp-status');
-    if (statusEl) {
-        statusEl.className = `mcp-status ${enabled ? 'connected' : 'disabled'}`;
-        statusEl.textContent = enabled ? t('settings.mcp.enabled') : t('settings.mcp.disabled');
-    }
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'toggle' + (mcp.enabled ? ' is-on' : '');
+    toggle.setAttribute('role', 'switch');
+    toggle.setAttribute('aria-checked', String(!!mcp.enabled));
+    toggle.dataset.mcpId = mcp.id;
 
-    // Call backend
+    const name = document.createElement('span');
+    name.className = 'mcp-name';
+    name.textContent = mcp.name;
+
+    const desc = document.createElement('span');
+    desc.className = 'mcp-desc';
+    desc.textContent = mcp.description || '';
+
+    const status = document.createElement('span');
+    status.className = 'chip ' + (mcp.enabled ? 'chip--mint' : '');
+    status.textContent = mcp.enabled ? t('settings.mcp.enabled') : t('settings.mcp.disabled');
+
+    toggle.addEventListener('click', () => handleMCPToggle(toggle, status));
+
+    item.appendChild(toggle);
+    item.appendChild(name);
+    item.appendChild(desc);
+    item.appendChild(status);
+    return item;
+}
+
+async function handleMCPToggle(toggleEl, statusEl) {
+    const enabled = toggleEl.classList.toggle('is-on');
+    toggleEl.setAttribute('aria-checked', String(enabled));
+    reflectMCPStatus(statusEl, enabled);
+
     if (window.pywebview && window.pywebview.api) {
         try {
-            await pywebview.api.toggle_mcp(mcpId, enabled);
+            await pywebview.api.toggle_mcp(toggleEl.dataset.mcpId, enabled);
         } catch (e) {
             console.warn('MCP toggle failed:', e);
             // Revert
-            toggleEl.classList.toggle('on');
+            const reverted = toggleEl.classList.toggle('is-on');
+            toggleEl.setAttribute('aria-checked', String(reverted));
+            reflectMCPStatus(statusEl, reverted);
         }
     }
 }
 
-// ───── AUDIO CONFIG ─────
+function reflectMCPStatus(statusEl, enabled) {
+    if (!statusEl) return;
+    statusEl.className = 'chip ' + (enabled ? 'chip--mint' : '');
+    statusEl.textContent = enabled ? t('settings.mcp.enabled') : t('settings.mcp.disabled');
+}
 
-async function renderAudioConfig() {
+// ───── SES GİRİŞİ (mikrofon → .env MIC_INDEX, restart gerekir) ─────
+
+async function renderAudioInput() {
     try {
-        const config = await pywebview.api.get_audio_config();
+        const res = await pywebview.api.get_audio_devices();
         const deviceSelect = document.getElementById('audio-device');
-        const wakeWordSelect = document.getElementById('audio-wakeword');
+        if (!deviceSelect) return;
 
-        if (deviceSelect && config.devices) {
-            deviceSelect.innerHTML = config.devices.map(d =>
-                `<option ${d === config.currentDevice ? 'selected' : ''}>${d}</option>`
-            ).join('');
+        deviceSelect.innerHTML = '';
+        const devices = (res && res.devices) || [];
+
+        if (devices.length === 0) {
+            const opt = document.createElement('option');
+            opt.textContent = t('settings.audio.none');
+            opt.disabled = true;
+            opt.selected = true;
+            deviceSelect.appendChild(opt);
+            deviceSelect.disabled = true;
+            return;
         }
 
-        if (wakeWordSelect && config.wakeWords) {
-            wakeWordSelect.innerHTML = config.wakeWords.map(w =>
-                `<option ${w === config.currentWakeWord ? 'selected' : ''}>${w}</option>`
-            ).join('');
-        }
+        // Sistem varsayılanı (MIC_INDEX yazılmamış = null)
+        const defaultOpt = document.createElement('option');
+        defaultOpt.value = '';
+        defaultOpt.textContent = t('settings.audio.systemDefault');
+        defaultOpt.selected = (res.current === null || res.current === undefined);
+        deviceSelect.appendChild(defaultOpt);
+
+        devices.forEach((d) => {
+            const opt = document.createElement('option');
+            opt.value = String(d.index);
+            opt.textContent = d.name;
+            opt.selected = (d.index === res.current);
+            deviceSelect.appendChild(opt);
+        });
+
+        deviceSelect.addEventListener('change', async () => {
+            if (deviceSelect.value === '') return; // varsayılan seçildi — .env'e dokunma
+            try {
+                const r = await pywebview.api.set_audio_device(parseInt(deviceSelect.value, 10));
+                if (r && r.success) {
+                    showToast(t('settings.savedRestart'), 'success');
+                } else {
+                    showToast(t('settings.saveFail', { error: (r && r.error) || '?' }), 'error');
+                }
+            } catch (e) {
+                showToast(t('settings.saveFail', { error: e }), 'error');
+            }
+        });
     } catch (e) {
-        console.warn('Audio config load failed, using defaults:', e);
+        console.warn('Audio devices load failed:', e);
     }
 }
 
-// ───── VOICE / TTS CONFIG ─────
+// ───── SES ÇIKIŞI (salt-okunur motor çipi) ─────
 
-async function renderVoiceConfig() {
+const TTS_PROVIDER_NAMES = { elevenlabs: 'ElevenLabs', openai: 'OpenAI' };
+
+async function renderAudioOutput() {
+    const chip = document.getElementById('tts-engine-chip');
+    if (!chip) return;
     try {
-        const config = await pywebview.api.get_voice_config();
-        const engineSelect = document.getElementById('voice-engine');
-        const voiceSelect = document.getElementById('voice-voice');
-        const speedSlider = document.getElementById('voice-speed');
-        const speedValue = document.getElementById('voice-speed-value');
-
-        if (engineSelect && config.engines) {
-            engineSelect.innerHTML = config.engines.map(e =>
-                `<option ${e === config.currentEngine ? 'selected' : ''}>${e}</option>`
-            ).join('');
-        }
-
-        if (voiceSelect && config.voices) {
-            voiceSelect.innerHTML = config.voices.map(v =>
-                `<option ${v === config.currentVoice ? 'selected' : ''}>${v}</option>`
-            ).join('');
-        }
-
-        if (speedSlider && config.speed) {
-            speedSlider.value = Math.round(config.speed * 100);
-            speedValue.textContent = config.speed.toFixed(1) + 'x';
+        const res = await pywebview.api.get_tts_status();
+        if (res && res.available && res.provider) {
+            const name = TTS_PROVIDER_NAMES[res.provider] || res.provider;
+            chip.className = 'chip chip--mint';
+            chip.textContent = t('settings.tts.auto', { provider: name });
+        } else {
+            chip.className = 'chip chip--coral';
+            chip.textContent = t('settings.tts.unavailable');
         }
     } catch (e) {
-        console.warn('Voice config load failed, using defaults:', e);
+        console.warn('TTS status load failed:', e);
+        chip.className = 'chip';
+        chip.textContent = t('settings.tts.unavailable');
     }
 }
 
@@ -218,103 +255,22 @@ async function renderAvatarConfig() {
         const skinSelect = document.getElementById('avatar-skin');
         if (!skinSelect || !config.skins) return;
 
-        skinSelect.innerHTML = config.skins.map(s =>
-            `<option value="${s.id}" ${s.id === config.avatar ? 'selected' : ''}>${s.name}</option>`
-        ).join('');
+        skinSelect.innerHTML = '';
+        config.skins.forEach((s) => {
+            const opt = document.createElement('option');
+            opt.value = s.id;
+            opt.textContent = s.name;
+            opt.selected = (s.id === config.avatar);
+            skinSelect.appendChild(opt);
+        });
 
-        // Bind here — in the REAL app path. (A previous fix put this only in
-        // initSettingsMock, which runs solely in browser preview, so the
-        // dropdown silently did nothing inside pywebview.)
-        // applySkin (js/avatar.js) persists via set_avatar AND keeps the
-        // preview stage + skin chips in sync with this dropdown.
+        // Bind here — in the REAL app path. applySkin (js/avatar.js)
+        // persists via set_avatar AND keeps the preview stage + skin
+        // chips in sync with this dropdown.
         skinSelect.onchange = () => applySkin(skinSelect.value);
     } catch (e) {
         console.warn('Avatar config load failed:', e);
     }
-}
-
-// ═══════════════════════════════════════
-//  MOCK INIT (browser preview mode)
-// ═══════════════════════════════════════
-
-function initSettingsMock() {
-    // Populate with reasonable defaults for browser preview
-
-    // LLM
-    const providerSelect = document.getElementById('llm-provider');
-    if (providerSelect) {
-        providerSelect.innerHTML = ['OpenAI', 'Groq', 'Anthropic', t('wizard.p.ollama.name')]
-            .map(p => `<option>${p}</option>`).join('');
-    }
-
-    const modelSelect = document.getElementById('llm-model');
-    if (modelSelect) {
-        modelSelect.innerHTML = ['gpt-4o', 'gpt-4o-mini', 'gpt-3.5-turbo']
-            .map(m => `<option>${m}</option>`).join('');
-    }
-
-    // MCP - show some sample items
-    const mcpContainer = document.getElementById('mcp-list');
-    if (mcpContainer) {
-        const mockMCPs = [
-            { id: 'filesystem', name: t('mock.mcp.filesystem.name'), desc: t('mock.mcp.filesystem.desc'), enabled: true },
-            { id: 'fetch', name: t('mock.mcp.fetch.name'), desc: t('mock.mcp.fetch.desc'), enabled: true },
-            { id: 'desktop-automation', name: t('mock.mcp.desktop.name'), desc: t('mock.mcp.desktop.desc'), enabled: true },
-            { id: 'memory', name: t('mock.mcp.memory.name'), desc: t('mock.mcp.memory.desc'), enabled: true }
-        ];
-        mcpContainer.innerHTML = '';
-        mockMCPs.forEach(mcp => {
-            const item = document.createElement('div');
-            item.className = 'mcp-item';
-            item.innerHTML = `
-        <div class="mcp-toggle ${mcp.enabled ? 'on' : ''}"
-             data-mcp-id="${mcp.id}"></div>
-        <span class="mcp-name">${mcp.name}</span>
-        <span class="mcp-desc">${mcp.desc}</span>
-        <span class="mcp-status ${mcp.enabled ? 'connected' : 'disabled'}">
-          ${mcp.enabled ? t('settings.mcp.enabled') : t('settings.mcp.disabled')}
-        </span>
-      `;
-            const toggle = item.querySelector('.mcp-toggle');
-            toggle.addEventListener('click', () => handleMCPToggle(toggle));
-            mcpContainer.appendChild(item);
-        });
-    }
-
-    // Audio
-    const deviceSelect = document.getElementById('audio-device');
-    if (deviceSelect) {
-        deviceSelect.innerHTML = [t('mock.audio.default'), t('mock.audio.array'), t('mock.audio.usb')]
-            .map(d => `<option>${d}</option>`).join('');
-    }
-
-    // Voice
-    const engineSelect = document.getElementById('voice-engine');
-    if (engineSelect) {
-        engineSelect.innerHTML = ['Google Cloud TTS', 'ElevenLabs', t('wizard.p.systemtts.name')]
-            .map(e => `<option>${e}</option>`).join('');
-    }
-
-    const voiceSelect = document.getElementById('voice-voice');
-    if (voiceSelect) {
-        voiceSelect.innerHTML = [t('mock.voice.a'), t('mock.voice.b'), t('mock.voice.c')]
-            .map(v => `<option>${v}</option>`).join('');
-    }
-
-    // Avatar skin — the change listener is bound HERE, unconditionally:
-    // the async config loader may fail (e.g. api not ready yet), and a
-    // dropdown without a listener silently ignores the user's choice.
-    // applySkin (js/avatar.js) guards the missing backend and keeps the
-    // preview stage + skin chips in sync with this dropdown.
-    const skinSelect = document.getElementById('avatar-skin');
-    if (skinSelect) {
-        skinSelect.innerHTML = [{ id: 'orb', name: 'Orb' }, { id: 'kedi', name: 'Kedi' }]
-            .map(s => `<option value="${s.id}">${s.name}</option>`).join('');
-        skinSelect.addEventListener('change', () => applySkin(skinSelect.value));
-    }
-
-    // Bind section collapse
-    bindSectionCollapse();
 }
 
 // ═══════════════════════════════════════
@@ -323,17 +279,15 @@ function initSettingsMock() {
 
 // Labels resolve through the i18n table (i18n.js loads before this file);
 // unknown env keys fall back to the raw key name in renderAPIKeys.
+// Only keys the engine actually reads are listed (see api.get_api_keys).
 const API_KEY_LABELS = {
-    'OPENAI_API_KEY': { label: t('apikey.OPENAI_API_KEY'), icon: '🤖' },
-    'DEEPGRAM_API_KEY': { label: t('apikey.DEEPGRAM_API_KEY'), icon: '🎙️' },
-    'ELEVENLABS_API_KEY': { label: t('apikey.ELEVENLABS_API_KEY'), icon: '🗣️' },
-    'ELEVENLABS_VOICE_ID': { label: t('apikey.ELEVENLABS_VOICE_ID'), icon: '🎭' },
-    'ELEVENLABS_MODEL_ID': { label: t('apikey.ELEVENLABS_MODEL_ID'), icon: '🔧' },
-    'GROQ_API_KEY': { label: t('apikey.GROQ_API_KEY'), icon: '⚡' },
-    'ANTHROPIC_API_KEY': { label: t('apikey.ANTHROPIC_API_KEY'), icon: '🧠' },
-    'GOOGLE_APPLICATION_CREDENTIALS': { label: t('apikey.GOOGLE_APPLICATION_CREDENTIALS'), icon: '☁️' },
-    'SPOTIFY_CLIENT_ID': { label: t('apikey.SPOTIFY_CLIENT_ID'), icon: '🎵' },
-    'SPOTIFY_CLIENT_SECRET': { label: t('apikey.SPOTIFY_CLIENT_SECRET'), icon: '🔐' }
+    'OPENAI_API_KEY': t('apikey.OPENAI_API_KEY'),
+    'DEEPGRAM_API_KEY': t('apikey.DEEPGRAM_API_KEY'),
+    'ELEVENLABS_API_KEY': t('apikey.ELEVENLABS_API_KEY'),
+    'ELEVENLABS_VOICE_ID': t('apikey.ELEVENLABS_VOICE_ID'),
+    'ELEVENLABS_MODEL_ID': t('apikey.ELEVENLABS_MODEL_ID'),
+    'SPOTIFY_CLIENT_ID': t('apikey.SPOTIFY_CLIENT_ID'),
+    'SPOTIFY_CLIENT_SECRET': t('apikey.SPOTIFY_CLIENT_SECRET')
 };
 
 async function renderAPIKeys() {
@@ -343,87 +297,128 @@ async function renderAPIKeys() {
         if (!container) return;
 
         container.innerHTML = '';
-
-        Object.keys(keys).forEach(keyName => {
-            const keyData = keys[keyName];
-            const meta = API_KEY_LABELS[keyName] || { label: keyName, icon: '🔑' };
-
-            const row = document.createElement('div');
-            row.className = 'mcp-item';
-            row.style.flexDirection = 'column';
-            row.style.alignItems = 'stretch';
-            row.style.gap = '8px';
-
-            const headerRow = document.createElement('div');
-            headerRow.style.display = 'flex';
-            headerRow.style.alignItems = 'center';
-            headerRow.style.gap = '10px';
-
-            const statusDot = keyData.has_value
-                ? '<span style="color: var(--accent-green); font-size: 8px;">●</span>'
-                : '<span style="color: var(--accent-red); font-size: 8px;">●</span>';
-
-            headerRow.innerHTML = `
-                <span style="font-size: 16px;">${meta.icon}</span>
-                <span class="mcp-name">${meta.label}</span>
-                ${statusDot}
-                <span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); flex: 2; text-align: right;">${keyData.masked || t('settings.keys.notSet')}</span>
-            `;
-
-            const inputRow = document.createElement('div');
-            inputRow.style.display = 'flex';
-            inputRow.style.gap = '8px';
-            inputRow.style.alignItems = 'center';
-
-            const input = document.createElement('input');
-            input.type = keyName.includes('KEY') || keyName.includes('SECRET') ? 'password' : 'text';
-            input.className = 'form-select';
-            input.style.flex = '1';
-            input.style.maxWidth = 'none';
-            input.style.fontFamily = 'var(--font-mono)';
-            input.style.fontSize = '12px';
-            input.placeholder = keyData.has_value ? t('settings.keys.updatePlaceholder') : t('settings.keys.placeholder');
-
-            const saveBtn = document.createElement('button');
-            saveBtn.className = 'connect-btn';
-            saveBtn.textContent = t('settings.keys.save');
-            saveBtn.onclick = async () => {
-                const val = input.value.trim();
-                if (!val) return;
-                saveBtn.textContent = t('settings.keys.saving');
-                try {
-                    await pywebview.api.set_api_key(keyName, val);
-                    saveBtn.textContent = t('settings.keys.saved');
-                    input.value = '';
-                    setTimeout(() => {
-                        saveBtn.textContent = t('settings.keys.save');
-                        renderAPIKeys(); // Refresh to show updated masked value
-                    }, 1500);
-                } catch (e) {
-                    saveBtn.textContent = t('settings.keys.error');
-                    setTimeout(() => saveBtn.textContent = t('settings.keys.save'), 2000);
-                }
-            };
-
-            inputRow.appendChild(input);
-            inputRow.appendChild(saveBtn);
-
-            row.appendChild(headerRow);
-            row.appendChild(inputRow);
-            container.appendChild(row);
+        Object.keys(keys).forEach((keyName) => {
+            container.appendChild(buildAPIKeyRow(keyName, keys[keyName]));
         });
     } catch (e) {
         console.warn('Failed to load API keys:', e);
     }
 }
 
+function buildAPIKeyRow(keyName, keyData) {
+    const row = document.createElement('div');
+    row.className = 'key-item';
+
+    // Üst satır: ad + durum noktası + maskeli değer
+    const headerRow = document.createElement('div');
+    headerRow.className = 'key-item-header';
+
+    const name = document.createElement('span');
+    name.className = 'key-name';
+    name.textContent = API_KEY_LABELS[keyName] || keyName;
+
+    const dot = document.createElement('span');
+    dot.className = 'key-dot ' + (keyData.has_value ? 'is-set' : '');
+
+    const masked = document.createElement('span');
+    masked.className = 'key-masked';
+    masked.textContent = keyData.masked || t('settings.keys.notSet');
+
+    headerRow.appendChild(name);
+    headerRow.appendChild(dot);
+    headerRow.appendChild(masked);
+
+    // Alt satır: input + kaydet
+    const inputRow = document.createElement('div');
+    inputRow.className = 'key-item-input';
+
+    const input = document.createElement('input');
+    input.type = (keyName.includes('KEY') || keyName.includes('SECRET')) ? 'password' : 'text';
+    input.className = 'field key-field';
+    input.autocomplete = 'off';
+    input.spellcheck = false;
+    input.placeholder = keyData.has_value
+        ? t('settings.keys.updatePlaceholder')
+        : t('settings.keys.placeholder');
+
+    const saveBtn = document.createElement('button');
+    saveBtn.type = 'button';
+    saveBtn.className = 'btn btn--primary btn--sm';
+    saveBtn.textContent = t('settings.keys.save');
+    saveBtn.addEventListener('click', async () => {
+        const val = input.value.trim();
+        if (!val) return;
+        saveBtn.disabled = true;
+        saveBtn.textContent = t('settings.keys.saving');
+        try {
+            await pywebview.api.set_api_key(keyName, val);
+            saveBtn.textContent = t('settings.keys.saved');
+            input.value = '';
+            setTimeout(() => {
+                saveBtn.disabled = false;
+                saveBtn.textContent = t('settings.keys.save');
+                renderAPIKeys(); // Refresh to show updated masked value
+            }, 1200);
+        } catch (e) {
+            saveBtn.textContent = t('settings.keys.error');
+            setTimeout(() => {
+                saveBtn.disabled = false;
+                saveBtn.textContent = t('settings.keys.save');
+            }, 2000);
+        }
+    });
+
+    inputRow.appendChild(input);
+    inputRow.appendChild(saveBtn);
+
+    row.appendChild(headerRow);
+    row.appendChild(inputRow);
+    return row;
+}
+
 // ═══════════════════════════════════════
-//  STATIC BINDINGS (both real + mock paths)
+//  BROWSER PREVIEW (no backend — honest empty states, no fake data)
+// ═══════════════════════════════════════
+
+function initSettingsPreview() {
+    const noBackend = t('settings.preview.noBackend');
+
+    const mcpContainer = document.getElementById('mcp-list');
+    if (mcpContainer) appendEmptyNote(mcpContainer, noBackend);
+
+    const keysContainer = document.getElementById('api-keys-list');
+    if (keysContainer) appendEmptyNote(keysContainer, noBackend);
+
+    const deviceSelect = document.getElementById('audio-device');
+    if (deviceSelect) {
+        const opt = document.createElement('option');
+        opt.textContent = noBackend;
+        opt.disabled = true;
+        opt.selected = true;
+        deviceSelect.appendChild(opt);
+        deviceSelect.disabled = true;
+    }
+
+    const ttsChip = document.getElementById('tts-engine-chip');
+    if (ttsChip) ttsChip.textContent = t('settings.tts.unavailable');
+
+    bindSectionCollapse();
+}
+
+function appendEmptyNote(container, text) {
+    const note = document.createElement('div');
+    note.className = 'empty-note';
+    note.textContent = text;
+    container.appendChild(note);
+}
+
+// ═══════════════════════════════════════
+//  STATIC BINDINGS (both real + preview paths)
 // ═══════════════════════════════════════
 
 /**
- * Bind slider value displays once, independent of backend availability.
- * (Replaces the old inline oninput attributes in index.html.)
+ * Bind the temperature slider's value display once, independent of
+ * backend availability.
  */
 function bindSettingsStatic() {
     const tempSlider = document.getElementById('llm-temperature');
@@ -433,32 +428,18 @@ function bindSettingsStatic() {
             tempValue.textContent = (tempSlider.value / 100).toFixed(2);
         });
     }
-
-    const speedSlider = document.getElementById('voice-speed');
-    const speedValue = document.getElementById('voice-speed-value');
-    if (speedSlider && speedValue) {
-        speedSlider.addEventListener('input', () => {
-            speedValue.textContent = (speedSlider.value / 100).toFixed(1) + 'x';
-        });
-    }
 }
 
 // ═══════════════════════════════════════
-//  SECTION COLLAPSE
+//  SECTION COLLAPSE (components.css .section/.is-closed)
 // ═══════════════════════════════════════
 
 function bindSectionCollapse() {
-    document.querySelectorAll('.section-header').forEach(header => {
+    document.querySelectorAll('.settings-body .section-header').forEach((header) => {
+        if (header.dataset.collapseBound) return; // idempotent
+        header.dataset.collapseBound = '1';
         header.addEventListener('click', () => {
-            const body = header.nextElementSibling;
-            const chevron = header.querySelector('.section-chevron');
-            if (body.style.display === 'none') {
-                body.style.display = 'flex';
-                chevron.classList.add('open');
-            } else {
-                body.style.display = 'none';
-                chevron.classList.remove('open');
-            }
+            header.closest('.section')?.classList.toggle('is-closed');
         });
     });
 }

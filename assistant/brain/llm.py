@@ -121,6 +121,7 @@ class Brain:
                 model=config.LLM_MODEL,
                 api_key=config.OPENAI_API_KEY if config.LLM_PROVIDER == "openai" else None,
                 base_url=config.OLLAMA_BASE_URL if config.LLM_PROVIDER == "ollama" else None,
+                temperature=config.LLM_TEMPERATURE,
             )
             logger.info(f"Classic Brain initialized with {self._classic_provider}")
         except Exception as e:
@@ -495,6 +496,7 @@ class Brain:
                         model=config.LLM_VISION_MODEL if config.LLM_PROVIDER == "openai" else config.LLM_MODEL,
                         api_key=config.OPENAI_API_KEY if config.LLM_PROVIDER == "openai" else None,
                         base_url=config.OLLAMA_BASE_URL if config.LLM_PROVIDER == "ollama" else None,
+                        temperature=config.LLM_TEMPERATURE,
                     )
                 response = self._classic_vision_provider.complete(
                     messages=vision_messages,

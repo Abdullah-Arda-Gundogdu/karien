@@ -184,138 +184,129 @@
             <div class="view" id="view-settings">
                 <div class="settings-view">
                     <div class="settings-header">
-                        <h1 data-i18n="settings.title">⚙ Ayarlar</h1>
+                        <h1 data-i18n="settings.title">Ayarlar</h1>
                         <p data-i18n="settings.subtitle">Asistanının beynini, araçlarını ve sesini buradan ayarla.</p>
                     </div>
                     <div class="settings-body">
 
-                        <!-- LLM Config -->
-                        <div class="settings-section">
+                        <!-- Yapay Zeka (.env: LLM_PROVIDER/LLM_MODEL/LLM_TEMPERATURE) -->
+                        <section class="section">
                             <div class="section-header">
-                                <div class="section-icon llm">🧠</div>
-                                <span class="section-title" data-i18n="settings.section.llm">LLM Ayarları</span>
-                                <span class="section-chevron open">▼</span>
+                                <div class="section-icon section-icon--lavanta">
+                                    <svg class="icon"><use href="#icon-brain"/></svg>
+                                </div>
+                                <span class="section-title" data-i18n="settings.section.ai">Yapay Zeka</span>
+                                <span class="chip chip--peach" data-i18n="settings.restartChip">Yeniden başlatınca geçerli</span>
+                                <svg class="icon section-chevron"><use href="#icon-chevron-down"/></svg>
                             </div>
                             <div class="section-body">
-                                <div class="form-row">
-                                    <span class="form-label" data-i18n="settings.label.provider">Sağlayıcı</span>
-                                    <select class="form-select" id="llm-provider">
+                                <div class="field-row">
+                                    <span class="field-label" data-i18n="settings.label.provider">Sağlayıcı</span>
+                                    <select class="field" id="llm-provider">
                                         <!-- populated by settings.js -->
                                     </select>
                                 </div>
-                                <div class="form-row">
-                                    <span class="form-label" data-i18n="settings.label.model">Model</span>
-                                    <select class="form-select" id="llm-model">
-                                        <!-- populated by settings.js -->
-                                    </select>
+                                <div class="field-row">
+                                    <span class="field-label" data-i18n="settings.label.model">Model</span>
+                                    <input class="field" type="text" id="llm-model" spellcheck="false"
+                                        autocomplete="off" data-i18n-placeholder="settings.model.placeholder"
+                                        placeholder="ör. gpt-4o-mini">
                                 </div>
-                                <div class="form-row">
-                                    <span class="form-label" data-i18n="settings.label.temperature">Sıcaklık</span>
-                                    <div class="slider-container">
+                                <div class="field-row">
+                                    <span class="field-label" data-i18n="settings.label.temperature">Sıcaklık</span>
+                                    <div class="slider-row">
                                         <input type="range" class="slider" id="llm-temperature" min="0" max="100"
                                             value="70">
                                         <span class="slider-value" id="llm-temp-value">0.70</span>
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        </section>
 
-                        <!-- MCP Servers -->
-                        <div class="settings-section">
+                        <!-- Araçlar (MCP) -->
+                        <section class="section">
                             <div class="section-header">
-                                <div class="section-icon mcp">🔌</div>
-                                <span class="section-title" data-i18n="settings.section.mcp">MCP Sunucuları (Araçlar)</span>
-                                <span class="section-chevron open">▼</span>
+                                <div class="section-icon section-icon--mint">
+                                    <svg class="icon"><use href="#icon-plug"/></svg>
+                                </div>
+                                <span class="section-title" data-i18n="settings.section.mcp">Araçlar (MCP)</span>
+                                <svg class="icon section-chevron"><use href="#icon-chevron-down"/></svg>
                             </div>
                             <div class="section-body" id="mcp-list">
                                 <!-- populated by settings.js -->
                             </div>
-                        </div>
+                        </section>
 
-                        <!-- Audio -->
-                        <div class="settings-section">
+                        <!-- Ses Girişi (.env: MIC_INDEX) -->
+                        <section class="section">
                             <div class="section-header">
-                                <div class="section-icon audio">🎤</div>
-                                <span class="section-title" data-i18n="settings.section.audio">Ses Ayarları</span>
-                                <span class="section-chevron open">▼</span>
+                                <div class="section-icon section-icon--sakura">
+                                    <svg class="icon"><use href="#icon-mic"/></svg>
+                                </div>
+                                <span class="section-title" data-i18n="settings.section.audioIn">Ses Girişi</span>
+                                <span class="chip chip--peach" data-i18n="settings.restartChip">Yeniden başlatınca geçerli</span>
+                                <svg class="icon section-chevron"><use href="#icon-chevron-down"/></svg>
                             </div>
                             <div class="section-body">
-                                <div class="form-row">
-                                    <span class="form-label" data-i18n="settings.label.inputDevice">Giriş Cihazı</span>
-                                    <select class="form-select" id="audio-device">
-                                        <!-- populated by settings.js -->
-                                    </select>
-                                </div>
-                                <div class="form-row">
-                                    <span class="form-label" data-i18n="settings.label.wakeWord">Uyandırma Sözcüğü</span>
-                                    <select class="form-select" id="audio-wakeword">
+                                <div class="field-row">
+                                    <span class="field-label" data-i18n="settings.label.inputDevice">Giriş Cihazı</span>
+                                    <select class="field" id="audio-device">
                                         <!-- populated by settings.js -->
                                     </select>
                                 </div>
                             </div>
-                        </div>
+                        </section>
 
-                        <!-- Voice / TTS -->
-                        <div class="settings-section">
+                        <!-- Ses Çıkışı (salt-okunur: tts singleton'ının otomatik seçimi) -->
+                        <section class="section">
                             <div class="section-header">
-                                <div class="section-icon voice">🗣️</div>
-                                <span class="section-title" data-i18n="settings.section.voice">Ses / Konuşma (TTS)</span>
-                                <span class="section-chevron open">▼</span>
+                                <div class="section-icon section-icon--peach">
+                                    <svg class="icon"><use href="#icon-speaker"/></svg>
+                                </div>
+                                <span class="section-title" data-i18n="settings.section.audioOut">Ses Çıkışı</span>
+                                <svg class="icon section-chevron"><use href="#icon-chevron-down"/></svg>
                             </div>
                             <div class="section-body">
-                                <div class="form-row">
-                                    <span class="form-label" data-i18n="settings.label.ttsEngine">TTS Motoru</span>
-                                    <select class="form-select" id="voice-engine">
-                                        <!-- populated by settings.js -->
-                                    </select>
+                                <div class="field-row">
+                                    <span class="field-label" data-i18n="settings.label.engine">Motor</span>
+                                    <span class="chip" id="tts-engine-chip" data-i18n="settings.tts.loading">Bakılıyor...</span>
                                 </div>
-                                <div class="form-row">
-                                    <span class="form-label" data-i18n="settings.label.voice">Ses</span>
-                                    <select class="form-select" id="voice-voice">
-                                        <!-- populated by settings.js -->
-                                    </select>
-                                </div>
-                                <div class="form-row">
-                                    <span class="form-label" data-i18n="settings.label.speed">Hız</span>
-                                    <div class="slider-container">
-                                        <input type="range" class="slider" id="voice-speed" min="50" max="200"
-                                            value="100">
-                                        <span class="slider-value" id="voice-speed-value">1.0x</span>
-                                    </div>
-                                </div>
+                                <p class="section-note" data-i18n="settings.tts.note">Motor, mevcut API anahtarlarına göre otomatik seçilir.</p>
                             </div>
-                        </div>
+                        </section>
 
                         <!-- Avatar -->
-                        <div class="settings-section">
+                        <section class="section">
                             <div class="section-header">
-                                <div class="section-icon"
-                                    style="background: linear-gradient(135deg, #3d1b33, #63164e);">🎭</div>
+                                <div class="section-icon section-icon--sakura">
+                                    <svg class="icon"><use href="#icon-face"/></svg>
+                                </div>
                                 <span class="section-title" data-i18n="settings.section.avatar">Avatar</span>
-                                <span class="section-chevron open">▼</span>
+                                <svg class="icon section-chevron"><use href="#icon-chevron-down"/></svg>
                             </div>
                             <div class="section-body">
-                                <div class="form-row">
-                                    <span class="form-label" data-i18n="settings.label.skin">Görünüm</span>
-                                    <select class="form-select" id="avatar-skin">
+                                <div class="field-row">
+                                    <span class="field-label" data-i18n="settings.label.skin">Görünüm</span>
+                                    <select class="field" id="avatar-skin">
                                         <!-- populated by settings.js from ui/avatars/manifest.json -->
                                     </select>
                                 </div>
                             </div>
-                        </div>
+                        </section>
 
-                        <!-- API Keys -->
-                        <div class="settings-section">
+                        <!-- API Anahtarları -->
+                        <section class="section">
                             <div class="section-header">
-                                <div class="section-icon"
-                                    style="background: linear-gradient(135deg, #1b2d3d, #164e63);">🔑</div>
+                                <div class="section-icon section-icon--lavanta">
+                                    <svg class="icon"><use href="#icon-key"/></svg>
+                                </div>
                                 <span class="section-title" data-i18n="settings.section.apiKeys">API Anahtarları</span>
-                                <span class="section-chevron open">▼</span>
+                                <svg class="icon section-chevron"><use href="#icon-chevron-down"/></svg>
                             </div>
                             <div class="section-body" id="api-keys-list">
                                 <!-- populated by settings.js -->
                             </div>
-                        </div>
+                        </section>
 
                     </div>
                 </div>

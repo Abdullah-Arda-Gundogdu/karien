@@ -113,34 +113,46 @@ class KarienAPI:
     # ═══════════════════════════════════════
     #  LLM CONFIGURATION
     # ═══════════════════════════════════════
+    # The engine reads LLM settings from .env via assistant.core.config at
+    # startup — settings.json plays no role here. get_llm_config reports the
+    # values the RUNNING engine actually uses; set_llm_config writes the new
+    # values to .env, which take effect after a restart (the UI shows an
+    # honest "yeniden başlatınca geçerli" chip for this).
+
+    _LLM_PROVIDERS = ["openai", "ollama"]
 
     def get_llm_config(self):
-        """Return LLM settings (provider, model, temperature, available options)."""
-        settings = self._load_settings()
-        llm = settings.get("llm", {})
+        """Return the live LLM settings the engine was started with."""
+        from assistant.core.config import config
         return {
-            "provider": llm.get("provider", "OpenAI"),
-            "model": llm.get("model", "gpt-4o"),
-            "temperature": llm.get("temperature", 0.7),
-            "providers": llm.get("providers", ["OpenAI"]),
-            "models": llm.get("models", {"OpenAI": ["gpt-4o"]})
+            "provider": config.LLM_PROVIDER,
+            "model": config.LLM_MODEL,
+            "temperature": config.LLM_TEMPERATURE,
+            "providers": list(self._LLM_PROVIDERS),
         }
 
     def set_llm_config(self, data: dict):
-        """Update LLM settings."""
-        settings = self._load_settings()
-        llm = settings.setdefault("llm", {})
+        """Write LLM settings to .env (effective after restart)."""
+        try:
+            if "provider" in data:
+                provider = str(data["provider"]).lower().strip()
+                if provider not in self._LLM_PROVIDERS:
+                    return {"success": False,
+                            "error": f"Bilinmeyen sağlayıcı: {provider}"}
+                self._write_env_key("LLM_PROVIDER", provider)
+            if "model" in data:
+                model = str(data["model"]).strip()
+                if model:
+                    self._write_env_key("LLM_MODEL", model)
+            if "temperature" in data:
+                temperature = max(0.0, min(2.0, float(data["temperature"])))
+                self._write_env_key("LLM_TEMPERATURE", f"{temperature:.2f}")
 
-        if "provider" in data:
-            llm["provider"] = data["provider"]
-        if "model" in data:
-            llm["model"] = data["model"]
-        if "temperature" in data:
-            llm["temperature"] = data["temperature"]
-
-        self._save_settings(settings)
-        logger.info(f"LLM config updated: {data}")
-        return {"success": True}
+            logger.info(f"LLM ayarları .env'e yazıldı: {data}")
+            return {"success": True, "restart_required": True}
+        except Exception as e:
+            logger.error(f"LLM ayarları yazılamadı: {e}")
+            return {"success": False, "error": str(e)}
 
     # ═══════════════════════════════════════
     #  MCP SERVERS
@@ -202,35 +214,68 @@ class KarienAPI:
             return {"success": False, "error": str(e)}
 
     # ═══════════════════════════════════════
-    #  AUDIO CONFIGURATION
+    #  AUDIO INPUT (microphone devices)
+    # ═══════════════════════════════════════
+    # PyAudio is lazy-imported: it must stay out of module import time
+    # (CI runs in a slim environment without portaudio).
+
+    def get_audio_devices(self):
+        """Enumerate microphone input devices (graceful [] on failure)."""
+        devices = []
+        try:
+            import pyaudio
+            pa = pyaudio.PyAudio()
+            try:
+                for i in range(pa.get_device_count()):
+                    info = pa.get_device_info_by_index(i)
+                    if int(info.get("maxInputChannels", 0)) > 0:
+                        devices.append({
+                            "index": i,
+                            "name": str(info.get("name", f"Cihaz {i}"))
+                        })
+            finally:
+                pa.terminate()
+        except Exception as e:
+            logger.error(f"Ses giriş cihazları listelenemedi: {e}")
+
+        current = None
+        try:
+            from assistant.core.config import config
+            current = config.MIC_INDEX
+        except Exception:
+            pass
+        return {"devices": devices, "current": current}
+
+    def set_audio_device(self, index):
+        """Persist the chosen mic as MIC_INDEX in .env (effective after restart)."""
+        try:
+            self._write_env_key("MIC_INDEX", str(int(index)))
+            logger.info(f"Mikrofon cihazı .env'e yazıldı: MIC_INDEX={int(index)}")
+            return {"success": True, "restart_required": True}
+        except Exception as e:
+            logger.error(f"Mikrofon cihazı yazılamadı: {e}")
+            return {"success": False, "error": str(e)}
+
+    # ═══════════════════════════════════════
+    #  AUDIO OUTPUT (TTS engine — read-only)
     # ═══════════════════════════════════════
 
-    def get_audio_config(self):
-        """Return audio settings."""
-        settings = self._load_settings()
-        audio = settings.get("audio", {})
-        return {
-            "currentDevice": audio.get("currentDevice", "Default"),
-            "devices": audio.get("devices", ["Default"]),
-            "currentWakeWord": audio.get("currentWakeWord", "Karien"),
-            "wakeWords": audio.get("wakeWords", ["Karien", "Hey Karien"])
-        }
+    def get_tts_status(self):
+        """Report which TTS engine the singleton auto-selected (read-only).
 
-    # ═══════════════════════════════════════
-    #  VOICE / TTS CONFIGURATION
-    # ═══════════════════════════════════════
-
-    def get_voice_config(self):
-        """Return voice/TTS settings."""
-        settings = self._load_settings()
-        voice = settings.get("voice", {})
-        return {
-            "currentEngine": voice.get("currentEngine", "Google Cloud TTS"),
-            "engines": voice.get("engines", ["Google Cloud TTS"]),
-            "currentVoice": voice.get("currentVoice", ""),
-            "voices": voice.get("voices", []),
-            "speed": voice.get("speed", 1.0)
-        }
+        Lazy import: the tts singleton pulls in pygame/audio at first use,
+        which must stay out of module import time for CI.
+        """
+        try:
+            from assistant.output.tts import tts
+            available = bool(tts.client)
+            return {
+                "available": available,
+                "provider": tts.provider if available else None
+            }
+        except Exception as e:
+            logger.error(f"TTS durumu okunamadı: {e}")
+            return {"available": False, "provider": None}
 
     # ═══════════════════════════════════════
     #  CONSOLE / COMMANDS (text-only mode)
@@ -446,13 +491,16 @@ class KarienAPI:
     # ═══════════════════════════════════════
 
     def get_api_keys(self):
-        """Get all API keys from .env, masked for display."""
+        """Get all API keys from .env, masked for display.
+
+        Only keys the engine actually reads are listed (GROQ/ANTHROPIC/
+        GOOGLE rows were dead — no runtime consumer).
+        """
         env_path = BASE_DIR / ".env"
         keys = {}
         key_names = [
-            'OPENAI_API_KEY', 'ELEVENLABS_API_KEY', 'ELEVENLABS_VOICE_ID',
-            'ELEVENLABS_MODEL_ID', 'DEEPGRAM_API_KEY', 'GROQ_API_KEY',
-            'ANTHROPIC_API_KEY', 'GOOGLE_APPLICATION_CREDENTIALS',
+            'OPENAI_API_KEY', 'DEEPGRAM_API_KEY', 'ELEVENLABS_API_KEY',
+            'ELEVENLABS_VOICE_ID', 'ELEVENLABS_MODEL_ID',
             'SPOTIFY_CLIENT_ID', 'SPOTIFY_CLIENT_SECRET'
         ]
 
@@ -481,34 +529,42 @@ class KarienAPI:
 
         return keys
 
+    def _write_env_key(self, key_name, value):
+        """Set a single KEY=value in .env, preserving comments and unknown
+        lines exactly as they are (comment-preserving merge).
+
+        Shared by set_api_key, set_llm_config and set_audio_device.
+        Raises on I/O failure — callers wrap with their own error handling.
+        """
+        env_path = BASE_DIR / ".env"
+        lines = []
+        found = False
+
+        if env_path.exists():
+            with open(env_path, 'r') as f:
+                lines = f.readlines()
+
+        new_lines = []
+        for line in lines:
+            stripped = line.strip()
+            if '=' in stripped and not stripped.startswith('#'):
+                k = stripped.split('=', 1)[0].strip()
+                if k == key_name:
+                    new_lines.append(f"{key_name}={value}\n")
+                    found = True
+                    continue
+            new_lines.append(line)
+
+        if not found:
+            new_lines.append(f"\n{key_name}={value}\n")
+
+        with open(env_path, 'w') as f:
+            f.writelines(new_lines)
+
     def set_api_key(self, key_name, value):
         """Update a single API key in .env."""
         try:
-            env_path = BASE_DIR / ".env"
-            lines = []
-            found = False
-
-            if env_path.exists():
-                with open(env_path, 'r') as f:
-                    lines = f.readlines()
-
-            new_lines = []
-            for line in lines:
-                stripped = line.strip()
-                if '=' in stripped and not stripped.startswith('#'):
-                    k = stripped.split('=', 1)[0].strip()
-                    if k == key_name:
-                        new_lines.append(f"{key_name}={value}\n")
-                        found = True
-                        continue
-                new_lines.append(line)
-
-            if not found:
-                new_lines.append(f"\n{key_name}={value}\n")
-
-            with open(env_path, 'w') as f:
-                f.writelines(new_lines)
-
+            self._write_env_key(key_name, value)
             logger.info(f"API key {key_name} updated")
             return {"success": True}
         except Exception as e:
