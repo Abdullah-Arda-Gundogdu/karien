@@ -111,7 +111,7 @@ async function sendCommand(input) {
             }
         } else if (cmd === '/state') {
             if (arg) {
-                setOrbState(arg);
+                updateStatus(arg);
                 addLog('info', t('console.stateSet', { state: arg }));
             } else {
                 addLog('info', t('console.stateList'));

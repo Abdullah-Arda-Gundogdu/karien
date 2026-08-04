@@ -1,0 +1,64 @@
+/* ═══════════════════════════════════════
+   Karien — Avatar Base (skin-agnostic, window-agnostic)
+   ═══════════════════════════════════════
+
+   Structural rules for the canonical #avatar-root
+   (mounted by js/avatar-dom.js) — shared by the
+   overlay window AND the main-window preview stage.
+
+   Everything VISUAL (colors, face, states, moods)
+   belongs to the active skin css in
+   ui/avatars/<id>/skin.css. Window-specific rules
+   (overlay transparency + slide) live in overlay.css.
+   ═══════════════════════════════════════ */
+
+#avatar-root {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* ───── AVATAR CONTAINER ───── */
+#avatar-root .avatar {
+    position: relative;
+    width: 150px;
+    height: 150px;
+}
+
+/* The round "body" — each skin paints it */
+#avatar-root .body {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+}
+
+/* Face plane — 120x80 chibi expression grid, scaled down to fit the
+   150px avatar so skins can reuse the existing coordinates. */
+#avatar-root .face {
+    position: absolute;
+    width: 120px;
+    height: 80px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.75);
+    z-index: 5;
+    pointer-events: none;
+}
+
+/* Optional skin parts — hidden unless a skin enables them */
+#avatar-root .ear,
+#avatar-root .whiskers {
+    display: none;
+}
+
+/* ───── STATUS LABEL (minimal, cute) ───── */
+/* Text content is set by JS via t('overlay.state.*') — no CSS content:
+   rules, so the labels live in the i18n table like everything else. */
+#avatar-root .status-label {
+    margin-top: 10px;
+    height: 16px;
+    font: 600 11px/16px -apple-system, "Segoe UI", sans-serif;
+    color: rgba(255, 255, 255, 0.9);
+    letter-spacing: 0.5px;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
+}

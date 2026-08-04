@@ -225,14 +225,9 @@ async function renderAvatarConfig() {
         // Bind here — in the REAL app path. (A previous fix put this only in
         // initSettingsMock, which runs solely in browser preview, so the
         // dropdown silently did nothing inside pywebview.)
-        skinSelect.onchange = async () => {
-            try {
-                // Persists to settings.json AND live-applies on the overlay
-                await pywebview.api.set_avatar(skinSelect.value);
-            } catch (e) {
-                console.warn('Failed to save avatar skin:', e);
-            }
-        };
+        // applySkin (js/avatar.js) persists via set_avatar AND keeps the
+        // preview stage + skin chips in sync with this dropdown.
+        skinSelect.onchange = () => applySkin(skinSelect.value);
     } catch (e) {
         console.warn('Avatar config load failed:', e);
     }
@@ -309,18 +304,13 @@ function initSettingsMock() {
     // Avatar skin — the change listener is bound HERE, unconditionally:
     // the async config loader may fail (e.g. api not ready yet), and a
     // dropdown without a listener silently ignores the user's choice.
+    // applySkin (js/avatar.js) guards the missing backend and keeps the
+    // preview stage + skin chips in sync with this dropdown.
     const skinSelect = document.getElementById('avatar-skin');
     if (skinSelect) {
         skinSelect.innerHTML = [{ id: 'orb', name: 'Orb' }, { id: 'kedi', name: 'Kedi' }]
             .map(s => `<option value="${s.id}">${s.name}</option>`).join('');
-        skinSelect.addEventListener('change', async () => {
-            try {
-                // Persists to settings.json AND live-applies on the overlay
-                await pywebview.api.set_avatar(skinSelect.value);
-            } catch (e) {
-                console.warn('Failed to save avatar skin:', e);
-            }
-        });
+        skinSelect.addEventListener('change', () => applySkin(skinSelect.value));
     }
 
     // Bind section collapse

@@ -11,10 +11,14 @@
     <link rel="stylesheet" href="css/base.css">
     <link rel="stylesheet" href="css/components.css">
     <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/avatar-base.css">
     <link rel="stylesheet" href="css/avatar.css">
     <link rel="stylesheet" href="css/console.css">
     <link rel="stylesheet" href="css/settings.css">
-    <link rel="stylesheet" href="css/face.css">
+    <!-- Aktif avatar derisi — js/avatar.js canlı önizleme için href'i değiştirir.
+         Skin sözleşmesi overlay ile birebir aynı: avatars/<id>/skin.css,
+         data-state/data-mood #avatar-root üzerinde. Son sırada durmalı. -->
+    <link rel="stylesheet" href="avatars/orb/skin.css" id="skin-link">
 </head>
 
 <body class="app-page">
@@ -120,34 +124,28 @@
         <!-- ───── MAIN CONTENT ───── -->
         <div class="main-content">
 
-            <!-- AVATAR VIEW -->
+            <!-- AVATAR VIEW (önizleme sahnesi — js/avatar.js sürer) -->
             <div class="view active" id="view-avatar">
                 <div class="avatar-view">
-                    <div class="particles" id="particles"></div>
                     <div class="avatar-status">
                         <div class="avatar-name">Karien</div>
                         <div class="avatar-status-text"><span data-i18n="avatar.statusPrefix">Durum:</span> <span class="highlight" id="statusLabel" data-i18n="state.idle">Boşta</span>
                         </div>
                     </div>
-                    <div class="orb-container" id="orbContainer">
-                        <div class="orb">
-                            <div class="face">
-                                <div class="brow brow-l"></div>
-                                <div class="brow brow-r"></div>
-                                <div class="eye eye-l">
-                                    <div class="pupil"></div>
-                                </div>
-                                <div class="eye eye-r">
-                                    <div class="pupil"></div>
-                                </div>
-                                <div class="mouth"></div>
-                                <div class="blush blush-l"></div>
-                                <div class="blush blush-r"></div>
-                            </div>
+                    <!-- #avatar-root buraya AvatarDom.mount ile takılır -->
+                    <div class="preview-stage" id="preview-stage"></div>
+                    <div class="avatar-chips">
+                        <div class="chip-row" id="skin-chips">
+                            <span class="chip-row-label" data-i18n="preview.skinLabel">Görünüm</span>
+                            <!-- deri çipleri js/avatar.js tarafından doldurulur -->
                         </div>
-                        <div class="orb-ring"></div>
-                        <div class="orb-ring"></div>
-                        <div class="orb-ring"></div>
+                        <div class="chip-row" id="state-chips">
+                            <span class="chip-row-label" data-i18n="preview.stateLabel">İfade</span>
+                            <button type="button" class="chip chip--action is-selected" data-preview-state="idle" data-i18n="preview.state.idle">Boşta</button>
+                            <button type="button" class="chip chip--action" data-preview-state="listen" data-i18n="preview.state.listen">Dinle</button>
+                            <button type="button" class="chip chip--action" data-preview-state="think" data-i18n="preview.state.think">Düşün</button>
+                            <button type="button" class="chip chip--action" data-preview-state="speak" data-i18n="preview.state.speak">Konuş</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -337,6 +335,7 @@
     <script src="js/i18n.js"></script>
     <script src="js/util.js"></script>
     <script src="js/toast.js"></script>
+    <script src="js/avatar-dom.js"></script>
     <script src="js/avatar.js"></script>
     <script src="js/console.js"></script>
     <script src="js/settings.js"></script>

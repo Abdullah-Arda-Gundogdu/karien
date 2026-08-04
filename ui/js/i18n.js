@@ -37,6 +37,14 @@
             'state.thinking': 'Düşünüyor...',
             'state.speaking': 'Konuşuyor...',
 
+            // ───── Avatar önizleme çipleri ─────
+            'preview.skinLabel': 'Görünüm',
+            'preview.stateLabel': 'İfade',
+            'preview.state.idle': 'Boşta',
+            'preview.state.listen': 'Dinle',
+            'preview.state.think': 'Düşün',
+            'preview.state.speak': 'Konuş',
+
             // ───── Ruh hâlleri ─────
             'mood.neutral': 'Sakin',
             'mood.happy': 'Mutlu',

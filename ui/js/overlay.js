@@ -17,6 +17,14 @@
 (function () {
     'use strict';
 
+    // Mount the canonical #avatar-root (single template in avatar-dom.js).
+    // Scripts sit at the end of <body>, so the body exists; mounting
+    // synchronously guarantees the root is there the moment the Python
+    // bridge can call any of the globals below.
+    if (!document.getElementById('avatar-root') && window.AvatarDom) {
+        window.AvatarDom.mount(document.body);
+    }
+
     function root() {
         return document.getElementById('avatar-root');
     }

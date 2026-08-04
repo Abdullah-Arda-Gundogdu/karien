@@ -1,12 +1,18 @@
 /* ═══════════════════════════════════════
-   Karien — Overlay Base (skin-agnostic)
+   Karien — Overlay Window (window-specific only)
    ═══════════════════════════════════════
 
-   Handles: transparent page, slide-in/out
-   motion, layout and the status label.
-   Everything VISUAL (colors, face, states,
-   moods) belongs to the active skin css in
-   ui/avatars/<id>/skin.css.
+   Handles ONLY what is unique to the frameless
+   transparent overlay window: transparent page
+   and the slide-in/out motion.
+
+   Structure of #avatar-root lives in
+   css/avatar-base.css (shared with the main-window
+   preview); visuals belong to the active skin css
+   in ui/avatars/<id>/skin.css.
+
+   CONTRACT: the overlay body NEVER gets a
+   background — transparency is the whole point.
    ═══════════════════════════════════════ */
 
 html,
@@ -24,9 +30,6 @@ body {
 #avatar-root {
     width: 170px;
     margin: 24px auto 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
     /* Off-screen right by default; .visible slides it in with a
        slight overshoot (design spec). */
     transform: translateX(240px);
@@ -36,51 +39,4 @@ body {
 
 #avatar-root.visible {
     transform: translateX(0);
-}
-
-/* ───── AVATAR CONTAINER ───── */
-.avatar {
-    position: relative;
-    width: 150px;
-    height: 150px;
-}
-
-/* The round "body" — each skin paints it */
-.body {
-    position: absolute;
-    inset: 0;
-    border-radius: 50%;
-}
-
-/* Face plane — same 120x80 grid as the main-window face (face.css),
-   scaled down to fit the 150px avatar so skins can reuse the
-   existing chibi expression coordinates. */
-.face {
-    position: absolute;
-    width: 120px;
-    height: 80px;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%) scale(0.75);
-    z-index: 5;
-    pointer-events: none;
-}
-
-/* Optional skin parts — hidden unless a skin enables them */
-.ear,
-.whiskers {
-    display: none;
-}
-
-/* ───── STATUS LABEL (minimal, cute) ───── */
-/* Text content is set by overlay.js via t('overlay.state.*') — no CSS
-   content: rules, so the labels live in the i18n table like everything
-   else. */
-.status-label {
-    margin-top: 10px;
-    height: 16px;
-    font: 600 11px/16px -apple-system, "Segoe UI", sans-serif;
-    color: rgba(255, 255, 255, 0.9);
-    letter-spacing: 0.5px;
-    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
 }
