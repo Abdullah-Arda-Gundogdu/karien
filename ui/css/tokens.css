@@ -103,29 +103,4 @@
   /* ───── Yazı yığınları ───── */
   --font-main: 'Nunito', ui-rounded, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, 'SF Mono', Menlo, monospace;
-
-  /* ═════════════════════════════════════════════════════════
-     LEGACY ALIASES — eski variables.css adları → yeni token'lar.
-     Geçiş süresince her ekran açılır kalır; son temizlik
-     commit'inde (plan faz 10) bu blok silinir.
-     ═════════════════════════════════════════════════════════ */
-  --bg-deep:       var(--ground-0);
-  --bg-sidebar:    var(--ground-1);
-  --bg-card:       var(--ground-2);
-  --bg-input:      var(--ground-3);
-  --bg-hover:      var(--ground-4);
-  --accent:        var(--sakura);
-  --accent-dim:    var(--sakura-soft);
-  --accent-glow:   var(--sakura-glow);
-  --accent-purple: var(--lavanta);
-  --accent-pink:   var(--sakura);
-  --accent-green:  var(--mint);
-  --accent-orange: var(--peach);
-  --accent-red:    var(--coral);
-  --text-primary:  var(--text-1);
-  --text-secondary: var(--text-2);
-  --text-dim:      var(--text-3);
-  --border:        var(--line);
-  --radius:        var(--r-md);
-  --radius-sm:     var(--r-sm);
 }
