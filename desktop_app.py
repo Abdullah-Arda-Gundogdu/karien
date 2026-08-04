@@ -19,8 +19,11 @@ from assistant.core.logging_config import logger
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Overlay window geometry (top-right corner)
-OVERLAY_WIDTH = 190
-OVERLAY_HEIGHT = 230
+# Wide enough that the avatar's soft glow fades out INSIDE the window —
+# anything painted at the window boundary gets hard-clipped by macOS's
+# rounded window corners and looks unnatural.
+OVERLAY_WIDTH = 240
+OVERLAY_HEIGHT = 270
 OVERLAY_MARGIN_RIGHT = 12
 OVERLAY_TOP = 36
 

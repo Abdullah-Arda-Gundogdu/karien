@@ -1,7 +1,7 @@
 {
-  "wizard_completed": false,
+  "wizard_completed": true,
   "stt": {
-    "provider": "Vosk (Local)",
+    "provider": "Deepgram",
     "providers": [
       "Deepgram",
       "Whisper (OpenAI)",
@@ -9,8 +9,8 @@
     ]
   },
   "llm": {
-    "provider": "Ollama (Local)",
-    "model": "llama3.2",
+    "provider": "OpenAI",
+    "model": "gpt-4o",
     "temperature": 0.7,
     "providers": [
       "OpenAI",
@@ -52,7 +52,7 @@
     ]
   },
   "tts": {
-    "provider": "System TTS",
+    "provider": "OpenAI TTS",
     "providers": [
       "OpenAI TTS",
       "ElevenLabs",

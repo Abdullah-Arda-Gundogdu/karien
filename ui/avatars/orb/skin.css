@@ -17,8 +17,7 @@
 #avatar-root .body {
     background: radial-gradient(circle at 35% 35%, #33ccff, #0066cc, #003366);
     box-shadow:
-        0 0 36px 12px rgba(0, 180, 255, 0.25),
-        0 0 72px 24px rgba(0, 120, 255, 0.1),
+        0 0 20px 4px rgba(0, 180, 255, 0.25),
         inset 0 0 20px rgba(255, 255, 255, 0.1);
     transition: background 0.5s ease, box-shadow 0.5s ease, filter 0.4s ease;
 }
@@ -158,8 +157,7 @@
 #avatar-root[data-mood="happy"] .body {
     background: radial-gradient(circle at 35% 35%, #55eeff, #00aacc, #005577);
     box-shadow:
-        0 0 36px 12px rgba(0, 220, 255, 0.3),
-        0 0 72px 24px rgba(0, 180, 255, 0.12),
+        0 0 20px 4px rgba(0, 220, 255, 0.3),
         inset 0 0 20px rgba(255, 255, 255, 0.12);
 }
 
@@ -202,8 +200,7 @@
 #avatar-root[data-mood="sad"] .body {
     background: radial-gradient(circle at 35% 35%, #4477bb, #224488, #112244);
     box-shadow:
-        0 0 36px 12px rgba(40, 80, 160, 0.3),
-        0 0 72px 24px rgba(30, 60, 120, 0.12),
+        0 0 20px 4px rgba(40, 80, 160, 0.3),
         inset 0 0 20px rgba(180, 200, 255, 0.08);
 }
 
@@ -242,8 +239,7 @@
 #avatar-root[data-mood="annoyed"] .body {
     background: radial-gradient(circle at 35% 35%, #ff6666, #cc3333, #661122);
     box-shadow:
-        0 0 36px 12px rgba(255, 80, 80, 0.25),
-        0 0 72px 24px rgba(200, 50, 50, 0.1),
+        0 0 20px 4px rgba(255, 80, 80, 0.25),
         inset 0 0 20px rgba(255, 200, 200, 0.08);
 }
 
@@ -285,8 +281,7 @@
 #avatar-root[data-mood="embarrassed"] .body {
     background: radial-gradient(circle at 35% 35%, #ff88bb, #cc4488, #882255);
     box-shadow:
-        0 0 36px 12px rgba(255, 120, 170, 0.3),
-        0 0 72px 24px rgba(200, 80, 130, 0.12),
+        0 0 20px 4px rgba(255, 120, 170, 0.3),
         inset 0 0 20px rgba(255, 200, 220, 0.1);
 }
 
@@ -344,8 +339,7 @@
 #avatar-root[data-mood="proud"] .body {
     background: radial-gradient(circle at 35% 35%, #ffcc44, #cc8800, #664400);
     box-shadow:
-        0 0 36px 12px rgba(255, 200, 50, 0.3),
-        0 0 72px 24px rgba(200, 150, 30, 0.12),
+        0 0 20px 4px rgba(255, 200, 50, 0.3),
         inset 0 0 20px rgba(255, 240, 200, 0.1);
 }
 
@@ -388,8 +382,7 @@
 #avatar-root[data-mood="curious"] .body {
     background: radial-gradient(circle at 35% 35%, #66bbff, #3388dd, #1155aa);
     box-shadow:
-        0 0 36px 12px rgba(80, 180, 255, 0.3),
-        0 0 72px 24px rgba(50, 130, 220, 0.12),
+        0 0 20px 4px rgba(80, 180, 255, 0.3),
         inset 0 0 20px rgba(200, 230, 255, 0.1);
 }
 
@@ -448,8 +441,7 @@
 #avatar-root[data-mood="excited"] .body {
     background: radial-gradient(circle at 35% 35%, #ff88ff, #cc44dd, #8822aa);
     box-shadow:
-        0 0 36px 12px rgba(255, 120, 255, 0.3),
-        0 0 72px 24px rgba(200, 60, 220, 0.12),
+        0 0 20px 4px rgba(255, 120, 255, 0.3),
         inset 0 0 20px rgba(255, 200, 255, 0.1);
     animation: skin-excited 0.5s ease-in-out infinite;
 }
@@ -492,7 +484,7 @@
     background: radial-gradient(circle at 35% 35%, #6666aa, #444477, #222244);
     box-shadow:
         0 0 24px 10px rgba(80, 80, 160, 0.2),
-        0 0 48px 20px rgba(60, 60, 120, 0.08),
+        0 0 20px 4px rgba(60, 60, 120, 0.08),
         inset 0 0 20px rgba(150, 150, 200, 0.06);
 }
 
@@ -507,8 +499,7 @@
 
 #avatar-root[data-state="listen"] .body {
     box-shadow:
-        0 0 48px 18px rgba(0, 200, 255, 0.35),
-        0 0 90px 32px rgba(0, 150, 255, 0.15),
+        0 0 20px 4px rgba(0, 200, 255, 0.35),
         inset 0 0 20px rgba(255, 255, 255, 0.15);
 }
 

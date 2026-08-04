@@ -223,15 +223,6 @@ async function renderAvatarConfig() {
         skinSelect.innerHTML = config.skins.map(s =>
             `<option value="${s.id}" ${s.id === config.avatar ? 'selected' : ''}>${s.name}</option>`
         ).join('');
-
-        skinSelect.addEventListener('change', async () => {
-            try {
-                // Persists to settings.json AND live-applies on the overlay
-                await pywebview.api.set_avatar(skinSelect.value);
-            } catch (e) {
-                console.warn('Failed to save avatar skin:', e);
-            }
-        });
     } catch (e) {
         console.warn('Avatar config load failed:', e);
     }
@@ -304,11 +295,21 @@ function initSettingsMock() {
             .map(v => `<option>${v}</option>`).join('');
     }
 
-    // Avatar skin
+    // Avatar skin — the change listener is bound HERE, unconditionally:
+    // the async config loader may fail (e.g. api not ready yet), and a
+    // dropdown without a listener silently ignores the user's choice.
     const skinSelect = document.getElementById('avatar-skin');
     if (skinSelect) {
         skinSelect.innerHTML = [{ id: 'orb', name: 'Orb' }, { id: 'kedi', name: 'Kedi' }]
             .map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+        skinSelect.addEventListener('change', async () => {
+            try {
+                // Persists to settings.json AND live-applies on the overlay
+                await pywebview.api.set_avatar(skinSelect.value);
+            } catch (e) {
+                console.warn('Failed to save avatar skin:', e);
+            }
+        });
     }
 
     // Bind section collapse
