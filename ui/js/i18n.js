@@ -27,6 +27,8 @@
             'nav.console': 'Konsol',
             'nav.settings': 'Ayarlar',
             'sidebar.online': 'Çevrimiçi',
+            'sidebar.micOn': 'Mikrofon açık',
+            'sidebar.micOff': 'Mikrofon kapalı',
 
             // ───── Avatar görünümü ─────
             'avatar.statusPrefix': 'Durum:',
@@ -34,10 +36,6 @@
             'state.listening': 'Dinliyor...',
             'state.thinking': 'Düşünüyor...',
             'state.speaking': 'Konuşuyor...',
-            'stateBtn.idle': 'Boşta',
-            'stateBtn.listening': 'Dinle',
-            'stateBtn.thinking': 'Düşün',
-            'stateBtn.speaking': 'Konuş',
 
             // ───── Ruh hâlleri ─────
             'mood.neutral': 'Sakin',
@@ -50,11 +48,16 @@
             'mood.excited': 'Heyecanlı',
             'mood.sleepy': 'Uykulu',
 
-            // ───── Alt bar ─────
-            'bar.mute': '🎤 Sustur',
-            'bar.unmute': '🔇 Sesi Aç',
-            'bar.forceStop': '⏹ Durdur',
-            'bar.screenshot': '📸 Ekran Görüntüsü',
+            // ───── Alt bar (ikonlar SVG sprite'tan gelir — metinler yalın) ─────
+            'bar.mute': 'Sustur',
+            'bar.unmute': 'Sesi Aç',
+            'bar.forceStop': 'Durdur',
+            'bar.screenshot': 'Ekran Görüntüsü',
+            'bar.muteFail': 'Ses durumu değiştirilemedi: {error}',
+            'bar.stopped': 'Konuşma durduruldu.',
+            'bar.stopFail': 'Durdurulamadı: {error}',
+            'bar.screenshotOk': 'Ekran görüntüsü Masaüstü\'ne kaydedildi.',
+            'bar.screenshotFail': 'Ekran görüntüsü alınamadı.',
 
             // ───── Konsol ─────
             'console.title': '⌘ Konsol Çıktısı',

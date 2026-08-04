@@ -35,7 +35,7 @@ function initAvatar() {
  * Switch the orb to a visual state (idle/listening/thinking/speaking).
  * Preserves the current mood expression.
  */
-function setOrbState(state, btn) {
+function setOrbState(state) {
     _currentState = state;
     const container = document.getElementById('orbContainer');
 
@@ -44,11 +44,6 @@ function setOrbState(state, btn) {
     if (state !== 'idle') container.classList.add(state);
 
     document.getElementById('statusLabel').textContent = t(ORB_LABEL_KEYS[state] || 'state.idle');
-
-    if (btn) {
-        document.querySelectorAll('.state-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-    }
 }
 
 /**
@@ -91,12 +86,7 @@ function setMood(mood) {
  * @param {string} status - e.g. 'listening', 'thinking'
  */
 function updateStatus(status) {
-    const normalized = status.toLowerCase();
-    setOrbState(normalized);
-    // Match on data-state, not the (translated) button text
-    document.querySelectorAll('.state-btn').forEach(b => {
-        b.classList.toggle('active', b.dataset.state === normalized);
-    });
+    setOrbState(status.toLowerCase());
 }
 
 /**
@@ -114,15 +104,6 @@ function createParticles() {
         p.style.width = p.style.height = (1 + Math.random() * 2) + 'px';
         particlesEl.appendChild(p);
     }
-}
-
-/**
- * Toggle mute button label.
- */
-function toggleMute(btn) {
-    // Track state via a class, not the (translated) label text
-    const muted = btn.classList.toggle('muted');
-    btn.textContent = muted ? t('bar.unmute') : t('bar.mute');
 }
 
 // ═══════════════════════════════════════

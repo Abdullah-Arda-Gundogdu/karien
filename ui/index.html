@@ -9,6 +9,7 @@
     <!-- Stylesheets -->
     <link rel="stylesheet" href="css/tokens.css">
     <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/components.css">
     <link rel="stylesheet" href="css/layout.css">
     <link rel="stylesheet" href="css/avatar.css">
     <link rel="stylesheet" href="css/console.css">
@@ -17,27 +18,101 @@
 </head>
 
 <body class="app-page">
+    <!-- İkon sprite'ı — kaynak: ui/img/icons.svg (senkron tut).
+         pywebview file:// altında harici <use href="img/icons.svg#..">
+         güvenilir olmadığı için semboller sayfaya gömülüdür. -->
+    <svg xmlns="http://www.w3.org/2000/svg" style="display: none;" aria-hidden="true">
+        <symbol id="icon-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="3" width="6" height="11" rx="3"/>
+            <path d="M5 11a7 7 0 0 0 14 0"/>
+            <path d="M12 18v3"/>
+        </symbol>
+        <symbol id="icon-mic-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 9v5a3 3 0 0 0 5.1 2.1M15 10V6a3 3 0 0 0-5.6-1.5"/>
+            <path d="M5 11a7 7 0 0 0 11.4 5.4M18.6 14A7 7 0 0 0 19 11"/>
+            <path d="M12 18v3"/>
+            <path d="M4 4l16 16"/>
+        </symbol>
+        <symbol id="icon-stop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="7" y="7" width="10" height="10" rx="2"/>
+        </symbol>
+        <symbol id="icon-camera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 8a2 2 0 0 1 2-2h2l2-3h6l2 3h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+            <circle cx="12" cy="12.5" r="3.5"/>
+        </symbol>
+        <symbol id="icon-terminal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 17l6-5-6-5"/>
+            <path d="M12 19h8"/>
+        </symbol>
+        <symbol id="icon-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3.5"/>
+            <path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M18.7 5.3l-2.1 2.1M7.4 16.6l-2.1 2.1"/>
+        </symbol>
+        <symbol id="icon-sparkle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3l2.2 6.8L21 12l-6.8 2.2L12 21l-2.2-6.8L3 12l6.8-2.2z"/>
+        </symbol>
+        <symbol id="icon-face" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="9"/>
+            <path d="M8.5 10h.01M15.5 10h.01"/>
+            <path d="M8.5 14.5a4.5 4.5 0 0 0 7 0"/>
+        </symbol>
+        <symbol id="icon-brain" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 5v14"/>
+            <path d="M12 5a3.5 3.5 0 0 0-6.6 1.2A3.5 3.5 0 0 0 4 12a3.5 3.5 0 0 0 1.6 5A3.5 3.5 0 0 0 12 19"/>
+            <path d="M12 5a3.5 3.5 0 0 1 6.6 1.2A3.5 3.5 0 0 1 20 12a3.5 3.5 0 0 1-1.6 5A3.5 3.5 0 0 1 12 19"/>
+        </symbol>
+        <symbol id="icon-plug" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 3v5M15 3v5"/>
+            <path d="M6 8h12v3a6 6 0 0 1-12 0z"/>
+            <path d="M12 17v4"/>
+        </symbol>
+        <symbol id="icon-key" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="7.5" cy="15.5" r="4.5"/>
+            <path d="M10.7 12.3L21 2"/>
+            <path d="M16 7l3 3M13 10l2 2"/>
+        </symbol>
+        <symbol id="icon-speaker" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 9v6h4l5 4V5L8 9z"/>
+            <path d="M16.5 8.5a5 5 0 0 1 0 7"/>
+            <path d="M19 6a8.5 8.5 0 0 1 0 12"/>
+        </symbol>
+        <symbol id="icon-chevron-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 9l6 6 6-6"/>
+        </symbol>
+        <symbol id="icon-send" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 3L10 14"/>
+            <path d="M21 3l-7 18-4-7-7-4z"/>
+        </symbol>
+        <symbol id="icon-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 6l12 12M18 6L6 18"/>
+        </symbol>
+        <symbol id="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 12l5 5L20 7"/>
+        </symbol>
+    </svg>
+
     <div class="app">
 
         <!-- ───── SIDEBAR ───── -->
         <div class="sidebar">
             <div class="sidebar-logo">K</div>
 
-            <div class="nav-item active" data-tab="avatar" onclick="switchTab('avatar')">
-                <span class="nav-icon">◉</span>
+            <div class="nav-item active" data-tab="avatar" role="button" tabindex="0">
+                <svg class="icon nav-icon"><use href="#icon-face"/></svg>
                 <span class="nav-label" data-i18n="nav.avatar">Avatar</span>
             </div>
-            <div class="nav-item" data-tab="console" onclick="switchTab('console')">
-                <span class="nav-icon">⌘</span>
+            <div class="nav-item" data-tab="console" role="button" tabindex="0">
+                <svg class="icon nav-icon"><use href="#icon-terminal"/></svg>
                 <span class="nav-label" data-i18n="nav.console">Konsol</span>
             </div>
-            <div class="nav-item" data-tab="settings" onclick="switchTab('settings')">
-                <span class="nav-icon">⚙</span>
+            <div class="nav-item" data-tab="settings" role="button" tabindex="0">
+                <svg class="icon nav-icon"><use href="#icon-gear"/></svg>
                 <span class="nav-label" data-i18n="nav.settings">Ayarlar</span>
             </div>
 
             <div class="sidebar-footer">
                 <div class="sidebar-status"><span class="dot"></span> <span data-i18n="sidebar.online">Çevrimiçi</span></div>
+                <div class="sidebar-mic" id="sidebar-mic"></div>
                 <div class="sidebar-version" id="sidebar-version">v0.2.0</div>
             </div>
         </div>
@@ -82,8 +157,8 @@
                 <div class="console-view">
                     <div class="console-toolbar">
                         <span class="title" data-i18n="console.title">⌘ Konsol Çıktısı</span>
-                        <button class="toolbar-btn" onclick="clearLogs()" data-i18n="console.clear">Temizle</button>
-                        <div class="toggle-switch" onclick="this.querySelector('.toggle-track').classList.toggle('on')">
+                        <button class="toolbar-btn" id="btn-clear-logs" data-i18n="console.clear">Temizle</button>
+                        <div class="toggle-switch" id="autoscroll-toggle">
                             <div class="toggle-track on"></div>
                             <span data-i18n="console.autoScroll">Otomatik Kaydırma</span>
                         </div>
@@ -132,8 +207,7 @@
                                     <span class="form-label" data-i18n="settings.label.temperature">Sıcaklık</span>
                                     <div class="slider-container">
                                         <input type="range" class="slider" id="llm-temperature" min="0" max="100"
-                                            value="70"
-                                            oninput="document.getElementById('llm-temp-value').textContent = (this.value/100).toFixed(2)">
+                                            value="70">
                                         <span class="slider-value" id="llm-temp-value">0.70</span>
                                     </div>
                                 </div>
@@ -199,8 +273,7 @@
                                     <span class="form-label" data-i18n="settings.label.speed">Hız</span>
                                     <div class="slider-container">
                                         <input type="range" class="slider" id="voice-speed" min="50" max="200"
-                                            value="100"
-                                            oninput="document.getElementById('voice-speed-value').textContent = (this.value/100).toFixed(1) + 'x'">
+                                            value="100">
                                         <span class="slider-value" id="voice-speed-value">1.0x</span>
                                     </div>
                                 </div>
@@ -243,24 +316,27 @@
             </div>
         </div>
 
-        <!-- ───── BOTTOM BAR ───── -->
+        <!-- ───── BOTTOM BAR (gerçek eylemler — js/app.js bağlar) ───── -->
         <div class="bottom-bar">
-            <button class="action-btn" onclick="toggleMute(this)" data-i18n="bar.mute">🎤 Sustur</button>
-            <button class="action-btn danger" data-i18n="bar.forceStop">⏹ Durdur</button>
-            <button class="action-btn" data-i18n="bar.screenshot">📸 Ekran Görüntüsü</button>
-
-            <div class="state-switcher">
-                <button class="state-btn active" data-state="idle" onclick="setOrbState('idle', this)" data-i18n="stateBtn.idle">Boşta</button>
-                <button class="state-btn" data-state="listening" onclick="setOrbState('listening', this)" data-i18n="stateBtn.listening">Dinle</button>
-                <button class="state-btn" data-state="thinking" onclick="setOrbState('thinking', this)" data-i18n="stateBtn.thinking">Düşün</button>
-                <button class="state-btn" data-state="speaking" onclick="setOrbState('speaking', this)" data-i18n="stateBtn.speaking">Konuş</button>
-            </div>
+            <button type="button" class="btn btn--soft" id="btn-mute">
+                <svg class="icon"><use href="#icon-mic"/></svg>
+                <span data-i18n="bar.mute">Sustur</span>
+            </button>
+            <button type="button" class="btn btn--danger" id="btn-stop">
+                <svg class="icon"><use href="#icon-stop"/></svg>
+                <span data-i18n="bar.forceStop">Durdur</span>
+            </button>
+            <button type="button" class="btn btn--ghost" id="btn-screenshot">
+                <svg class="icon"><use href="#icon-camera"/></svg>
+                <span data-i18n="bar.screenshot">Ekran Görüntüsü</span>
+            </button>
         </div>
     </div>
 
     <!-- Scripts (order matters: i18n first, then shared helpers, modules, app bootstrap) -->
     <script src="js/i18n.js"></script>
     <script src="js/util.js"></script>
+    <script src="js/toast.js"></script>
     <script src="js/avatar.js"></script>
     <script src="js/console.js"></script>
     <script src="js/settings.js"></script>

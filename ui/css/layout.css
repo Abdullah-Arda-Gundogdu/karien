@@ -1,8 +1,11 @@
-/* ═══════════════════════════════════════
-   Karien — Layout, Sidebar, Bottom Bar
-   ═══════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════
+   Karien — Kabuk: grid, kenar çubuğu, alt bar
+   tokens.css + components.css üstünde; kawaii-ama-rafine geçiş.
+   Alt bar butonları components.css'teki .btn ailesini kullanır —
+   burada yalnızca yerleşim ve kabuğa özgü durumlar var.
+   ═══════════════════════════════════════════════════════════ */
 
-/* ───── APP GRID ───── */
+/* ───── UYGULAMA GRID'İ ───── */
 .app {
     display: grid;
     grid-template-columns: 78px 1fr;
@@ -10,112 +13,128 @@
     height: 100vh;
 }
 
-/* ───── SIDEBAR ───── */
+/* ───── KENAR ÇUBUĞU ───── */
 .sidebar {
     grid-row: 1 / 3;
-    background: var(--bg-sidebar);
-    border-right: 1px solid var(--border);
+    background: var(--ground-1);
+    border-right: 1px solid var(--line);
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 20px 0;
-    gap: 6px;
+    padding: var(--sp-5) 0;
+    gap: var(--sp-2);
     z-index: 10;
 }
 
+/* Pembe-lavanta yumuşak logo */
 .sidebar-logo {
-    width: 42px;
-    height: 42px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
-    background: linear-gradient(135deg, var(--accent), var(--accent-purple));
+    background: linear-gradient(135deg, var(--sakura), var(--lavanta));
     display: flex;
     align-items: center;
     justify-content: center;
-    font-weight: 700;
-    font-size: 16px;
-    color: #fff;
-    margin-bottom: 28px;
-    box-shadow: 0 0 20px var(--accent-dim);
+    font-weight: var(--fw-heavy);
+    font-size: var(--fs-lg);
+    color: var(--ground-0);
+    margin-bottom: var(--sp-6);
+    box-shadow: var(--glow-sakura);
 }
 
+/* Hap (pill) nav öğeleri */
 .nav-item {
-    width: 52px;
-    height: 52px;
-    border-radius: var(--radius);
+    width: 58px;
+    padding: var(--sp-2) 0 var(--sp-1);
+    border-radius: var(--r-pill);
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    cursor: pointer;
-    transition: all 0.25s ease;
-    position: relative;
-    color: var(--text-secondary);
     gap: 3px;
+    cursor: pointer;
+    color: var(--text-2);
+    transition:
+        background var(--dur-fast) var(--ease-out),
+        color var(--dur-fast) var(--ease-out),
+        transform var(--dur-med) var(--ease-spring);
 }
 
 .nav-item:hover {
-    background: var(--bg-hover);
-    color: var(--text-primary);
+    background: var(--ground-3);
+    color: var(--text-1);
+}
+
+.nav-item:active {
+    transform: scale(0.94);
+}
+
+.nav-item:focus-visible {
+    outline: 2px solid var(--lavanta);
+    outline-offset: 2px;
 }
 
 .nav-item.active {
-    background: var(--accent-dim);
-    color: var(--accent);
-}
-
-.nav-item.active::before {
-    content: '';
-    position: absolute;
-    left: -13px;
-    width: 3px;
-    height: 24px;
-    background: var(--accent);
-    border-radius: 0 3px 3px 0;
-    box-shadow: 0 0 10px var(--accent);
+    background: var(--sakura-soft);
+    color: var(--sakura);
 }
 
 .nav-icon {
-    font-size: 20px;
-    line-height: 1;
+    width: 22px;
+    height: 22px;
 }
 
 .nav-label {
-    font-size: 9px;
-    font-weight: 500;
+    font-size: 10px;
+    font-weight: var(--fw-bold);
     letter-spacing: 0.3px;
 }
 
 .sidebar-footer {
     margin-top: auto;
     text-align: center;
-    padding: 10px;
+    padding: var(--sp-3);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--sp-1);
 }
 
-.sidebar-version {
-    font-size: 10px;
-    color: var(--text-dim);
-    font-family: var(--font-mono);
-}
-
+/* Mint durum noktası */
 .sidebar-status {
-    font-size: 9px;
-    color: var(--accent-green);
-    margin-top: 6px;
+    font-size: 10px;
+    font-weight: var(--fw-bold);
+    color: var(--mint);
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--sp-1);
     justify-content: center;
 }
 
 .sidebar-status .dot {
-    width: 6px;
-    height: 6px;
+    width: 7px;
+    height: 7px;
     border-radius: 50%;
-    background: var(--accent-green);
+    background: var(--mint);
+    box-shadow: 0 0 8px var(--mint);
     animation: pulse-dot 2s infinite;
 }
 
-/* ───── MAIN CONTENT ───── */
+/* Mikrofon durumu satırı (js/app.js doldurur) */
+.sidebar-mic {
+    font-size: 9.5px;
+    font-weight: var(--fw-medium);
+    color: var(--text-3);
+    min-height: 13px;
+}
+
+.sidebar-version {
+    font-size: 10px;
+    color: var(--text-3);
+    font-family: var(--font-mono);
+}
+
+/* ───── ANA İÇERİK ───── */
 .main-content {
     overflow: hidden;
     position: relative;
@@ -131,68 +150,23 @@
     flex-direction: column;
 }
 
-/* ───── BOTTOM BAR ───── */
+/* ───── ALT BAR ───── */
 .bottom-bar {
-    background: var(--bg-sidebar);
-    border-top: 1px solid var(--border);
-    padding: 12px 24px;
+    background: var(--ground-1);
+    border-top: 1px solid var(--line);
+    padding: var(--sp-3) var(--sp-6);
     display: flex;
     align-items: center;
-    gap: 10px;
     justify-content: center;
+    gap: var(--sp-3);
 }
 
-.action-btn {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    padding: 8px 18px;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--border);
-    background: var(--bg-card);
-    color: var(--text-secondary);
-    font-size: 12px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s;
-    font-family: var(--font-main);
+/* Susturulmuş durum: buton mercan tonuna döner (ikon: mic-off) */
+#btn-mute.muted {
+    background: var(--coral-soft);
+    color: var(--coral);
 }
 
-.action-btn:hover {
-    background: var(--bg-hover);
-    border-color: var(--accent);
-    color: var(--accent);
-}
-
-.action-btn.danger:hover {
-    border-color: var(--accent-red);
-    color: var(--accent-red);
-}
-
-.state-switcher {
-    margin-left: auto;
-    display: flex;
-    gap: 6px;
-}
-
-.state-btn {
-    padding: 6px 12px;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    background: var(--bg-input);
-    color: var(--text-dim);
-    font-size: 10px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    font-family: var(--font-main);
-}
-
-.state-btn:hover,
-.state-btn.active {
-    border-color: var(--accent);
-    color: var(--accent);
-    background: var(--accent-dim);
+#btn-mute.muted:hover {
+    background: rgba(255, 155, 155, 0.28);
 }

@@ -23,6 +23,18 @@ function initConsole() {
             if (e.key === 'Enter') sendCommand(input);
         });
     }
+
+    // Toolbar: clear button + auto-scroll toggle (inline onclick yok)
+    const clearBtn = document.getElementById('btn-clear-logs');
+    if (clearBtn) clearBtn.addEventListener('click', clearLogs);
+
+    const autoScroll = document.getElementById('autoscroll-toggle');
+    if (autoScroll) {
+        autoScroll.addEventListener('click', () => {
+            const track = autoScroll.querySelector('.toggle-track');
+            if (track) track.classList.toggle('on');
+        });
+    }
 }
 
 /**

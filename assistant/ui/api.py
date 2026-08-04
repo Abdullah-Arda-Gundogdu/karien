@@ -681,3 +681,35 @@ class KarienAPI:
             return {"success": False, "enabled": self._voice_service.enabled,
                     "error": str(e)}
 
+    # ═══════════════════════════════════════
+    #  BOTTOM BAR ACTIONS (Durdur / Ekran Görüntüsü)
+    # ═══════════════════════════════════════
+
+    def stop_speaking(self):
+        """Immediately stop TTS playback (UI 'Durdur' button).
+
+        Import is lazy: the tts singleton pulls in pygame/audio, which must
+        stay out of module import time (CI runs in a slim environment).
+        """
+        try:
+            from assistant.output.tts import tts
+            tts.stop_playback()
+            return {"success": True}
+        except Exception as e:
+            logger.error(f"Konuşma durdurulamadı: {e}")
+            return {"success": False, "error": str(e)}
+
+    def take_screenshot(self):
+        """Take a screenshot to the Desktop (UI 'Ekran Görüntüsü' button).
+
+        Reuses SystemSkill's cross-platform implementation via lazy import
+        (pyautogui is imported inside the skill method itself).
+        """
+        try:
+            from assistant.skills.system import SystemSkill
+            ok = SystemSkill()._take_screenshot()
+            return {"success": bool(ok)}
+        except Exception as e:
+            logger.error(f"Ekran görüntüsü alınamadı: {e}")
+            return {"success": False, "error": str(e)}
+

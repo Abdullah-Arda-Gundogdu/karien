@@ -60,13 +60,10 @@ async function renderLLMConfig() {
             modelSelect.addEventListener('change', saveLLMConfig);
         }
 
-        // Temperature
+        // Temperature (display sync is bound once in bindSettingsStatic)
         if (tempSlider) {
             tempSlider.value = Math.round((config.temperature || 0.7) * 100);
             tempValue.textContent = (config.temperature || 0.7).toFixed(2);
-            tempSlider.addEventListener('input', () => {
-                tempValue.textContent = (tempSlider.value / 100).toFixed(2);
-            });
             tempSlider.addEventListener('change', saveLLMConfig);
         }
     } catch (e) {
@@ -117,15 +114,16 @@ async function renderMCPServers() {
             const item = document.createElement('div');
             item.className = 'mcp-item';
             item.innerHTML = `
-        <div class="mcp-toggle ${mcp.enabled ? 'on' : ''}" 
-             data-mcp-id="${mcp.id}"
-             onclick="handleMCPToggle(this)"></div>
+        <div class="mcp-toggle ${mcp.enabled ? 'on' : ''}"
+             data-mcp-id="${mcp.id}"></div>
         <span class="mcp-name">${mcp.name}</span>
         <span class="mcp-desc">${mcp.description || ''}</span>
         <span class="mcp-status ${mcp.enabled ? 'connected' : 'disabled'}">
           ${mcp.enabled ? t('settings.mcp.enabled') : t('settings.mcp.disabled')}
         </span>
       `;
+            const toggle = item.querySelector('.mcp-toggle');
+            toggle.addEventListener('click', () => handleMCPToggle(toggle));
             container.appendChild(item);
         });
     } catch (e) {
@@ -274,15 +272,16 @@ function initSettingsMock() {
             const item = document.createElement('div');
             item.className = 'mcp-item';
             item.innerHTML = `
-        <div class="mcp-toggle ${mcp.enabled ? 'on' : ''}" 
-             data-mcp-id="${mcp.id}"
-             onclick="handleMCPToggle(this)"></div>
+        <div class="mcp-toggle ${mcp.enabled ? 'on' : ''}"
+             data-mcp-id="${mcp.id}"></div>
         <span class="mcp-name">${mcp.name}</span>
         <span class="mcp-desc">${mcp.desc}</span>
         <span class="mcp-status ${mcp.enabled ? 'connected' : 'disabled'}">
           ${mcp.enabled ? t('settings.mcp.enabled') : t('settings.mcp.disabled')}
         </span>
       `;
+            const toggle = item.querySelector('.mcp-toggle');
+            toggle.addEventListener('click', () => handleMCPToggle(toggle));
             mcpContainer.appendChild(item);
         });
     }
@@ -425,6 +424,32 @@ async function renderAPIKeys() {
         });
     } catch (e) {
         console.warn('Failed to load API keys:', e);
+    }
+}
+
+// ═══════════════════════════════════════
+//  STATIC BINDINGS (both real + mock paths)
+// ═══════════════════════════════════════
+
+/**
+ * Bind slider value displays once, independent of backend availability.
+ * (Replaces the old inline oninput attributes in index.html.)
+ */
+function bindSettingsStatic() {
+    const tempSlider = document.getElementById('llm-temperature');
+    const tempValue = document.getElementById('llm-temp-value');
+    if (tempSlider && tempValue) {
+        tempSlider.addEventListener('input', () => {
+            tempValue.textContent = (tempSlider.value / 100).toFixed(2);
+        });
+    }
+
+    const speedSlider = document.getElementById('voice-speed');
+    const speedValue = document.getElementById('voice-speed-value');
+    if (speedSlider && speedValue) {
+        speedSlider.addEventListener('input', () => {
+            speedValue.textContent = (speedSlider.value / 100).toFixed(1) + 'x';
+        });
     }
 }
 
