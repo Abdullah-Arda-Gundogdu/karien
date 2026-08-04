@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="tr">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Karien Dashboard</title>
+    <title data-i18n="app.title">Karien Paneli</title>
 
     <!-- Stylesheets -->
     <link rel="stylesheet" href="css/variables.css">
@@ -24,19 +24,19 @@
 
             <div class="nav-item active" data-tab="avatar" onclick="switchTab('avatar')">
                 <span class="nav-icon">◉</span>
-                <span class="nav-label">Avatar</span>
+                <span class="nav-label" data-i18n="nav.avatar">Avatar</span>
             </div>
             <div class="nav-item" data-tab="console" onclick="switchTab('console')">
                 <span class="nav-icon">⌘</span>
-                <span class="nav-label">Console</span>
+                <span class="nav-label" data-i18n="nav.console">Konsol</span>
             </div>
             <div class="nav-item" data-tab="settings" onclick="switchTab('settings')">
                 <span class="nav-icon">⚙</span>
-                <span class="nav-label">Settings</span>
+                <span class="nav-label" data-i18n="nav.settings">Ayarlar</span>
             </div>
 
             <div class="sidebar-footer">
-                <div class="sidebar-status"><span class="dot"></span> Online</div>
+                <div class="sidebar-status"><span class="dot"></span> <span data-i18n="sidebar.online">Çevrimiçi</span></div>
                 <div class="sidebar-version" id="sidebar-version">v0.2.0</div>
             </div>
         </div>
@@ -50,7 +50,7 @@
                     <div class="particles" id="particles"></div>
                     <div class="avatar-status">
                         <div class="avatar-name">Karien</div>
-                        <div class="avatar-status-text">Status: <span class="highlight" id="statusLabel">Idle</span>
+                        <div class="avatar-status-text"><span data-i18n="avatar.statusPrefix">Durum:</span> <span class="highlight" id="statusLabel" data-i18n="state.idle">Boşta</span>
                         </div>
                     </div>
                     <div class="orb-container" id="orbContainer">
@@ -80,11 +80,11 @@
             <div class="view" id="view-console">
                 <div class="console-view">
                     <div class="console-toolbar">
-                        <span class="title">⌘ Console Output</span>
-                        <button class="toolbar-btn" onclick="clearLogs()">Clear Log</button>
+                        <span class="title" data-i18n="console.title">⌘ Konsol Çıktısı</span>
+                        <button class="toolbar-btn" onclick="clearLogs()" data-i18n="console.clear">Temizle</button>
                         <div class="toggle-switch" onclick="this.querySelector('.toggle-track').classList.toggle('on')">
                             <div class="toggle-track on"></div>
-                            <span>Auto-Scroll</span>
+                            <span data-i18n="console.autoScroll">Otomatik Kaydırma</span>
                         </div>
                     </div>
                     <div class="log-area" id="logArea">
@@ -92,8 +92,8 @@
                     </div>
                     <div class="console-input-bar">
                         <span class="prompt-char">❯</span>
-                        <input class="console-input" type="text" placeholder="Type command manually here..." />
-                        <button class="send-btn">Send</button>
+                        <input class="console-input" type="text" data-i18n-placeholder="console.inputPlaceholder" placeholder="Komutunu buraya yaz..." />
+                        <button class="send-btn" data-i18n="console.send">Gönder</button>
                     </div>
                 </div>
             </div>
@@ -102,8 +102,8 @@
             <div class="view" id="view-settings">
                 <div class="settings-view">
                     <div class="settings-header">
-                        <h1>⚙ Settings</h1>
-                        <p>Configure your assistant's brain, tools, and audio.</p>
+                        <h1 data-i18n="settings.title">⚙ Ayarlar</h1>
+                        <p data-i18n="settings.subtitle">Asistanının beynini, araçlarını ve sesini buradan ayarla.</p>
                     </div>
                     <div class="settings-body">
 
@@ -111,24 +111,24 @@
                         <div class="settings-section">
                             <div class="section-header">
                                 <div class="section-icon llm">🧠</div>
-                                <span class="section-title">LLM Configuration</span>
+                                <span class="section-title" data-i18n="settings.section.llm">LLM Ayarları</span>
                                 <span class="section-chevron open">▼</span>
                             </div>
                             <div class="section-body">
                                 <div class="form-row">
-                                    <span class="form-label">Provider</span>
+                                    <span class="form-label" data-i18n="settings.label.provider">Sağlayıcı</span>
                                     <select class="form-select" id="llm-provider">
                                         <!-- populated by settings.js -->
                                     </select>
                                 </div>
                                 <div class="form-row">
-                                    <span class="form-label">Model</span>
+                                    <span class="form-label" data-i18n="settings.label.model">Model</span>
                                     <select class="form-select" id="llm-model">
                                         <!-- populated by settings.js -->
                                     </select>
                                 </div>
                                 <div class="form-row">
-                                    <span class="form-label">Temperature</span>
+                                    <span class="form-label" data-i18n="settings.label.temperature">Sıcaklık</span>
                                     <div class="slider-container">
                                         <input type="range" class="slider" id="llm-temperature" min="0" max="100"
                                             value="70"
@@ -143,7 +143,7 @@
                         <div class="settings-section">
                             <div class="section-header">
                                 <div class="section-icon mcp">🔌</div>
-                                <span class="section-title">MCP Servers (Tools)</span>
+                                <span class="section-title" data-i18n="settings.section.mcp">MCP Sunucuları (Araçlar)</span>
                                 <span class="section-chevron open">▼</span>
                             </div>
                             <div class="section-body" id="mcp-list">
@@ -155,18 +155,18 @@
                         <div class="settings-section">
                             <div class="section-header">
                                 <div class="section-icon audio">🎤</div>
-                                <span class="section-title">Audio Configuration</span>
+                                <span class="section-title" data-i18n="settings.section.audio">Ses Ayarları</span>
                                 <span class="section-chevron open">▼</span>
                             </div>
                             <div class="section-body">
                                 <div class="form-row">
-                                    <span class="form-label">Input Device</span>
+                                    <span class="form-label" data-i18n="settings.label.inputDevice">Giriş Cihazı</span>
                                     <select class="form-select" id="audio-device">
                                         <!-- populated by settings.js -->
                                     </select>
                                 </div>
                                 <div class="form-row">
-                                    <span class="form-label">Wake Word</span>
+                                    <span class="form-label" data-i18n="settings.label.wakeWord">Uyandırma Sözcüğü</span>
                                     <select class="form-select" id="audio-wakeword">
                                         <!-- populated by settings.js -->
                                     </select>
@@ -178,24 +178,24 @@
                         <div class="settings-section">
                             <div class="section-header">
                                 <div class="section-icon voice">🗣️</div>
-                                <span class="section-title">Voice / TTS</span>
+                                <span class="section-title" data-i18n="settings.section.voice">Ses / Konuşma (TTS)</span>
                                 <span class="section-chevron open">▼</span>
                             </div>
                             <div class="section-body">
                                 <div class="form-row">
-                                    <span class="form-label">TTS Engine</span>
+                                    <span class="form-label" data-i18n="settings.label.ttsEngine">TTS Motoru</span>
                                     <select class="form-select" id="voice-engine">
                                         <!-- populated by settings.js -->
                                     </select>
                                 </div>
                                 <div class="form-row">
-                                    <span class="form-label">Voice</span>
+                                    <span class="form-label" data-i18n="settings.label.voice">Ses</span>
                                     <select class="form-select" id="voice-voice">
                                         <!-- populated by settings.js -->
                                     </select>
                                 </div>
                                 <div class="form-row">
-                                    <span class="form-label">Speed</span>
+                                    <span class="form-label" data-i18n="settings.label.speed">Hız</span>
                                     <div class="slider-container">
                                         <input type="range" class="slider" id="voice-speed" min="50" max="200"
                                             value="100"
@@ -211,12 +211,12 @@
                             <div class="section-header">
                                 <div class="section-icon"
                                     style="background: linear-gradient(135deg, #3d1b33, #63164e);">🎭</div>
-                                <span class="section-title">Avatar</span>
+                                <span class="section-title" data-i18n="settings.section.avatar">Avatar</span>
                                 <span class="section-chevron open">▼</span>
                             </div>
                             <div class="section-body">
                                 <div class="form-row">
-                                    <span class="form-label">Skin</span>
+                                    <span class="form-label" data-i18n="settings.label.skin">Görünüm</span>
                                     <select class="form-select" id="avatar-skin">
                                         <!-- populated by settings.js from ui/avatars/manifest.json -->
                                     </select>
@@ -229,7 +229,7 @@
                             <div class="section-header">
                                 <div class="section-icon"
                                     style="background: linear-gradient(135deg, #1b2d3d, #164e63);">🔑</div>
-                                <span class="section-title">API Keys</span>
+                                <span class="section-title" data-i18n="settings.section.apiKeys">API Anahtarları</span>
                                 <span class="section-chevron open">▼</span>
                             </div>
                             <div class="section-body" id="api-keys-list">
@@ -244,20 +244,21 @@
 
         <!-- ───── BOTTOM BAR ───── -->
         <div class="bottom-bar">
-            <button class="action-btn" onclick="toggleMute(this)">🎤 Mute</button>
-            <button class="action-btn danger">⏹ Force Stop</button>
-            <button class="action-btn">📸 Screenshot</button>
+            <button class="action-btn" onclick="toggleMute(this)" data-i18n="bar.mute">🎤 Sustur</button>
+            <button class="action-btn danger" data-i18n="bar.forceStop">⏹ Durdur</button>
+            <button class="action-btn" data-i18n="bar.screenshot">📸 Ekran Görüntüsü</button>
 
             <div class="state-switcher">
-                <button class="state-btn active" onclick="setOrbState('idle', this)">Idle</button>
-                <button class="state-btn" onclick="setOrbState('listening', this)">Listen</button>
-                <button class="state-btn" onclick="setOrbState('thinking', this)">Think</button>
-                <button class="state-btn" onclick="setOrbState('speaking', this)">Speak</button>
+                <button class="state-btn active" data-state="idle" onclick="setOrbState('idle', this)" data-i18n="stateBtn.idle">Boşta</button>
+                <button class="state-btn" data-state="listening" onclick="setOrbState('listening', this)" data-i18n="stateBtn.listening">Dinle</button>
+                <button class="state-btn" data-state="thinking" onclick="setOrbState('thinking', this)" data-i18n="stateBtn.thinking">Düşün</button>
+                <button class="state-btn" data-state="speaking" onclick="setOrbState('speaking', this)" data-i18n="stateBtn.speaking">Konuş</button>
             </div>
         </div>
     </div>
 
-    <!-- Scripts (order matters: shared helpers, then modules, then app bootstrap) -->
+    <!-- Scripts (order matters: i18n first, then shared helpers, modules, app bootstrap) -->
+    <script src="js/i18n.js"></script>
     <script src="js/util.js"></script>
     <script src="js/avatar.js"></script>
     <script src="js/console.js"></script>

@@ -22,30 +22,31 @@ const wizardState = {
 //  PROVIDER DATA
 // ═══════════════════════════════════════
 
+// All user-facing text resolves through the i18n table (i18n.js loads first).
 const PROVIDERS = {
     stt: [
         {
             id: 'deepgram',
             name: 'Deepgram',
-            desc: 'Fast, accurate, real-time streaming. Best for Turkish & multilingual.',
+            desc: t('wizard.p.deepgram.desc'),
             difficulty: 'easy',
             fields: [
-                { key: 'DEEPGRAM_API_KEY', label: 'API Key', placeholder: 'Enter your Deepgram API key', hint: 'Get one free at <a href="https://console.deepgram.com" target="_blank">console.deepgram.com</a>' }
+                { key: 'DEEPGRAM_API_KEY', label: t('wizard.p.deepgram.key.label'), placeholder: t('wizard.p.deepgram.key.placeholder'), hint: t('wizard.p.deepgram.key.hint') }
             ]
         },
         {
             id: 'whisper_openai',
             name: 'Whisper (OpenAI)',
-            desc: 'High accuracy speech recognition powered by OpenAI.',
+            desc: t('wizard.p.whisper.desc'),
             difficulty: 'easy',
             fields: [
-                { key: 'OPENAI_API_KEY', label: 'OpenAI API Key', placeholder: 'sk-...', hint: 'Uses your OpenAI key. Create one at <a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com</a>' }
+                { key: 'OPENAI_API_KEY', label: t('wizard.p.whisper.key.label'), placeholder: 'sk-...', hint: t('wizard.p.whisper.key.hint') }
             ]
         },
         {
             id: 'vosk',
-            name: 'Vosk (Local)',
-            desc: '100% offline, runs on your machine. No API key needed!',
+            name: t('wizard.p.vosk.name'),
+            desc: t('wizard.p.vosk.desc'),
             difficulty: 'easy',
             offline: true,
             fields: []
@@ -55,42 +56,42 @@ const PROVIDERS = {
         {
             id: 'openai',
             name: 'OpenAI',
-            desc: 'GPT-4o, GPT-4o-mini — the industry standard for intelligence.',
+            desc: t('wizard.p.openai.desc'),
             difficulty: 'easy',
             fields: [
-                { key: 'OPENAI_API_KEY', label: 'API Key', placeholder: 'sk-...', hint: 'Get yours at <a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com</a>' }
+                { key: 'OPENAI_API_KEY', label: t('wizard.p.openai.key.label'), placeholder: 'sk-...', hint: t('wizard.p.openai.key.hint') }
             ],
             models: ['gpt-4o', 'gpt-4o-mini', 'gpt-3.5-turbo']
         },
         {
             id: 'groq',
             name: 'Groq',
-            desc: 'Ultra-fast inference for Llama & Mixtral models. Free tier available!',
+            desc: t('wizard.p.groq.desc'),
             difficulty: 'easy',
             fields: [
-                { key: 'GROQ_API_KEY', label: 'API Key', placeholder: 'gsk_...', hint: 'Get a free key at <a href="https://console.groq.com" target="_blank">console.groq.com</a>' }
+                { key: 'GROQ_API_KEY', label: t('wizard.p.groq.key.label'), placeholder: 'gsk_...', hint: t('wizard.p.groq.key.hint') }
             ],
             models: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768']
         },
         {
             id: 'anthropic',
             name: 'Anthropic',
-            desc: 'Claude Sonnet & Haiku — great for reasoning and code tasks.',
+            desc: t('wizard.p.anthropic.desc'),
             difficulty: 'medium',
-            warning: '⚠️ Anthropic uses a different API format. Full support is coming soon — basic chat works but tool calling may be limited.',
+            warning: t('wizard.p.anthropic.warning'),
             fields: [
-                { key: 'ANTHROPIC_API_KEY', label: 'API Key', placeholder: 'sk-ant-...', hint: 'Get yours at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>' }
+                { key: 'ANTHROPIC_API_KEY', label: t('wizard.p.anthropic.key.label'), placeholder: 'sk-ant-...', hint: t('wizard.p.anthropic.key.hint') }
             ],
             models: ['claude-sonnet-4-20250514', 'claude-3-5-haiku-20241022']
         },
         {
             id: 'ollama',
-            name: 'Ollama (Local)',
-            desc: 'Run LLMs locally on your machine. Completely free & private.',
+            name: t('wizard.p.ollama.name'),
+            desc: t('wizard.p.ollama.desc'),
             difficulty: 'medium',
-            warning: '⚠️ You need to install Ollama first and pull a model (e.g. <code>ollama pull llama3.2</code>). Performance depends on your hardware.',
+            warning: t('wizard.p.ollama.warning'),
             fields: [
-                { key: 'OLLAMA_BASE_URL', label: 'Base URL', placeholder: 'http://localhost:11434/v1', hint: 'Usually http://localhost:11434/v1 (default)', defaultValue: 'http://localhost:11434/v1' }
+                { key: 'OLLAMA_BASE_URL', label: t('wizard.p.ollama.url.label'), placeholder: 'http://localhost:11434/v1', hint: t('wizard.p.ollama.url.hint'), defaultValue: 'http://localhost:11434/v1' }
             ],
             models: ['llama3.2', 'mistral', 'gemma2']
         }
@@ -99,38 +100,38 @@ const PROVIDERS = {
         {
             id: 'openai_tts',
             name: 'OpenAI TTS',
-            desc: 'Natural-sounding voices. Fast and reliable.',
+            desc: t('wizard.p.openaitts.desc'),
             difficulty: 'easy',
             fields: [
-                { key: 'OPENAI_API_KEY', label: 'OpenAI API Key', placeholder: 'sk-...', hint: 'Same key as LLM. Create at <a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com</a>' }
+                { key: 'OPENAI_API_KEY', label: t('wizard.p.openaitts.key.label'), placeholder: 'sk-...', hint: t('wizard.p.openaitts.key.hint') }
             ]
         },
         {
             id: 'elevenlabs',
             name: 'ElevenLabs',
-            desc: 'Premium voice cloning & ultra-realistic speech synthesis.',
+            desc: t('wizard.p.eleven.desc'),
             difficulty: 'medium',
-            warning: '⚠️ You need both an API key and a Voice ID. Free tier has limited characters per month.',
+            warning: t('wizard.p.eleven.warning'),
             fields: [
-                { key: 'ELEVENLABS_API_KEY', label: 'API Key', placeholder: 'Enter your ElevenLabs API key', hint: 'Get at <a href="https://elevenlabs.io" target="_blank">elevenlabs.io</a>' },
-                { key: 'ELEVENLABS_VOICE_ID', label: 'Voice ID', placeholder: 'e.g. fUjY9K2nAIwlALOwSiwc', hint: 'Find voice IDs in your ElevenLabs voice library' },
-                { key: 'ELEVENLABS_MODEL_ID', label: 'Model ID', placeholder: 'eleven_flash_v2_5', hint: 'Default: eleven_flash_v2_5', defaultValue: 'eleven_flash_v2_5' }
+                { key: 'ELEVENLABS_API_KEY', label: t('wizard.p.eleven.key.label'), placeholder: t('wizard.p.eleven.key.placeholder'), hint: t('wizard.p.eleven.key.hint') },
+                { key: 'ELEVENLABS_VOICE_ID', label: t('wizard.p.eleven.voice.label'), placeholder: t('wizard.p.eleven.voice.placeholder'), hint: t('wizard.p.eleven.voice.hint') },
+                { key: 'ELEVENLABS_MODEL_ID', label: t('wizard.p.eleven.model.label'), placeholder: 'eleven_flash_v2_5', hint: t('wizard.p.eleven.model.hint'), defaultValue: 'eleven_flash_v2_5' }
             ]
         },
         {
             id: 'google_tts',
             name: 'Google Cloud TTS',
-            desc: 'High quality WaveNet voices with many language options.',
+            desc: t('wizard.p.googletts.desc'),
             difficulty: 'hard',
-            warning: '🔴 This is the hardest to set up! You need a Google Cloud project, enable the Text-to-Speech API, create a Service Account, and download the JSON credentials file. Not just an API key!',
+            warning: t('wizard.p.googletts.warning'),
             fields: [
-                { key: 'GOOGLE_APPLICATION_CREDENTIALS', label: 'Service Account JSON Path', placeholder: '/path/to/service-account.json', hint: 'Full path to your Google Cloud service account JSON file' }
+                { key: 'GOOGLE_APPLICATION_CREDENTIALS', label: t('wizard.p.googletts.path.label'), placeholder: t('wizard.p.googletts.path.placeholder'), hint: t('wizard.p.googletts.path.hint') }
             ]
         },
         {
             id: 'system_tts',
-            name: 'System TTS',
-            desc: 'Uses your OS built-in text-to-speech. Zero setup needed!',
+            name: t('wizard.p.systemtts.name'),
+            desc: t('wizard.p.systemtts.desc'),
             difficulty: 'easy',
             offline: true,
             fields: []
@@ -167,14 +168,14 @@ function renderWizardStep(stepIndex) {
       <div class="provider-card-header">
         <div class="provider-radio"></div>
         <span class="provider-name">${provider.name}</span>
-        <span class="difficulty-badge ${provider.difficulty}">${provider.difficulty === 'easy' ? '🟢 Easy' : provider.difficulty === 'medium' ? '🟡 Medium' : '🔴 Hard'}</span>
+        <span class="difficulty-badge ${provider.difficulty}">${t('wizard.difficulty.' + provider.difficulty)}</span>
       </div>
       <div class="provider-desc">${provider.desc}</div>
     `;
 
         // Offline badge
         if (provider.offline) {
-            html += `<div class="offline-badge">✨ Works offline — no internet needed!</div>`;
+            html += `<div class="offline-badge">${t('wizard.offlineBadge')}</div>`;
         }
 
         // Warning callout
@@ -203,7 +204,7 @@ function renderWizardStep(stepIndex) {
                    autocomplete="off"
                    spellcheck="false" />
             <span class="config-hint">${field.hint}</span>
-            <span class="validation-msg" id="wizard-${stepIndex}-${field.key}-error">This field is required</span>
+            <span class="validation-msg" id="wizard-${stepIndex}-${field.key}-error">${t('wizard.required')}</span>
           </div>
         `;
             });
@@ -278,15 +279,15 @@ function validateCurrentStep() {
     // Offline providers don't need validation
     if (provider.offline || provider.fields.length === 0) return true;
 
-    // API key format rules
+    // API key format rules (labels resolve through the i18n table)
     const KEY_RULES = {
-        'OPENAI_API_KEY': { minLen: 20, prefix: 'sk-', label: 'OpenAI key should start with sk- and be 20+ characters' },
-        'DEEPGRAM_API_KEY': { minLen: 20, label: 'Deepgram key should be at least 20 characters' },
-        'GROQ_API_KEY': { minLen: 15, prefix: 'gsk_', label: 'Groq key should start with gsk_ and be 15+ characters' },
-        'ANTHROPIC_API_KEY': { minLen: 20, prefix: 'sk-ant-', label: 'Anthropic key should start with sk-ant- and be 20+ characters' },
-        'ELEVENLABS_API_KEY': { minLen: 15, label: 'ElevenLabs key should be at least 15 characters' },
-        'ELEVENLABS_VOICE_ID': { minLen: 10, label: 'Voice ID should be at least 10 characters' },
-        'GOOGLE_APPLICATION_CREDENTIALS': { minLen: 5, label: 'Please enter a valid file path' },
+        'OPENAI_API_KEY': { minLen: 20, prefix: 'sk-', label: t('wizard.val.OPENAI_API_KEY') },
+        'DEEPGRAM_API_KEY': { minLen: 20, label: t('wizard.val.DEEPGRAM_API_KEY') },
+        'GROQ_API_KEY': { minLen: 15, prefix: 'gsk_', label: t('wizard.val.GROQ_API_KEY') },
+        'ANTHROPIC_API_KEY': { minLen: 20, prefix: 'sk-ant-', label: t('wizard.val.ANTHROPIC_API_KEY') },
+        'ELEVENLABS_API_KEY': { minLen: 15, label: t('wizard.val.ELEVENLABS_API_KEY') },
+        'ELEVENLABS_VOICE_ID': { minLen: 10, label: t('wizard.val.ELEVENLABS_VOICE_ID') },
+        'GOOGLE_APPLICATION_CREDENTIALS': { minLen: 5, label: t('wizard.val.GOOGLE_APPLICATION_CREDENTIALS') },
     };
 
     // Validate required fields
@@ -300,17 +301,17 @@ function validateCurrentStep() {
         const rule = KEY_RULES[field.key];
 
         let fieldValid = true;
-        let errorMsg = 'This field is required';
+        let errorMsg = t('wizard.required');
 
         if (!val) {
             fieldValid = false;
         } else if (rule) {
             if (rule.minLen && val.length < rule.minLen) {
                 fieldValid = false;
-                errorMsg = rule.label || `Must be at least ${rule.minLen} characters`;
+                errorMsg = rule.label || t('wizard.val.minLen', { n: rule.minLen });
             } else if (rule.prefix && !val.startsWith(rule.prefix)) {
                 fieldValid = false;
-                errorMsg = rule.label || `Must start with ${rule.prefix}`;
+                errorMsg = rule.label || t('wizard.val.prefix', { prefix: rule.prefix });
             }
         }
 
@@ -393,7 +394,7 @@ function updateProgress() {
 
     // Step counter
     const counter = document.getElementById('step-counter');
-    if (counter) counter.textContent = `Step ${currentStep + 1} of ${totalSteps}`;
+    if (counter) counter.textContent = t('wizard.stepCounter', { current: currentStep + 1, total: totalSteps });
 }
 
 function updateNavButtons() {
@@ -418,7 +419,7 @@ async function finishWizard() {
     const finishBtn = document.getElementById('wizard-finish');
     if (finishBtn) {
         finishBtn.disabled = true;
-        finishBtn.textContent = '⏳ Saving...';
+        finishBtn.textContent = t('wizard.saving');
     }
 
     try {
@@ -432,8 +433,8 @@ async function finishWizard() {
             container.innerHTML = `
         <div style="text-align: center; padding: 60px 20px;">
           <div style="font-size: 64px; margin-bottom: 20px; animation: float 2s ease-in-out infinite;">🎉</div>
-          <h2 style="font-size: 24px; font-weight: 700; margin-bottom: 8px;">All set!</h2>
-          <p style="color: var(--text-secondary); font-size: 14px;">Karien is ready to go. Launching in a moment...</p>
+          <h2 style="font-size: 24px; font-weight: 700; margin-bottom: 8px;">${t('wizard.done.title')}</h2>
+          <p style="color: var(--text-secondary); font-size: 14px;">${t('wizard.done.subtitle')}</p>
         </div>
       `;
         }
@@ -449,7 +450,7 @@ async function finishWizard() {
         console.error('Failed to save wizard config:', e);
         if (finishBtn) {
             finishBtn.disabled = false;
-            finishBtn.textContent = "Let's Go! 🚀";
+            finishBtn.textContent = t('wizard.finish');
         }
     }
 }

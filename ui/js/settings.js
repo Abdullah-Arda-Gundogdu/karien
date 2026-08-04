@@ -109,7 +109,7 @@ async function renderMCPServers() {
         container.innerHTML = '';
 
         if (servers.length === 0) {
-            container.innerHTML = '<div style="color: var(--text-dim); padding: 12px;">No MCP servers installed.</div>';
+            container.innerHTML = '<div style="color: var(--text-dim); padding: 12px;">' + t('settings.mcp.none') + '</div>';
             return;
         }
 
@@ -123,7 +123,7 @@ async function renderMCPServers() {
         <span class="mcp-name">${mcp.name}</span>
         <span class="mcp-desc">${mcp.description || ''}</span>
         <span class="mcp-status ${mcp.enabled ? 'connected' : 'disabled'}">
-          ${mcp.enabled ? 'Enabled' : 'Disabled'}
+          ${mcp.enabled ? t('settings.mcp.enabled') : t('settings.mcp.disabled')}
         </span>
       `;
             container.appendChild(item);
@@ -142,7 +142,7 @@ async function handleMCPToggle(toggleEl) {
     const statusEl = toggleEl.parentElement.querySelector('.mcp-status');
     if (statusEl) {
         statusEl.className = `mcp-status ${enabled ? 'connected' : 'disabled'}`;
-        statusEl.textContent = enabled ? 'Enabled' : 'Disabled';
+        statusEl.textContent = enabled ? t('settings.mcp.enabled') : t('settings.mcp.disabled');
     }
 
     // Call backend
@@ -250,7 +250,7 @@ function initSettingsMock() {
     // LLM
     const providerSelect = document.getElementById('llm-provider');
     if (providerSelect) {
-        providerSelect.innerHTML = ['OpenAI', 'Groq', 'Anthropic', 'Ollama (Local)']
+        providerSelect.innerHTML = ['OpenAI', 'Groq', 'Anthropic', t('wizard.p.ollama.name')]
             .map(p => `<option>${p}</option>`).join('');
     }
 
@@ -264,10 +264,10 @@ function initSettingsMock() {
     const mcpContainer = document.getElementById('mcp-list');
     if (mcpContainer) {
         const mockMCPs = [
-            { id: 'filesystem', name: 'Filesystem', desc: 'Read and write files', enabled: true },
-            { id: 'fetch', name: 'Web Fetch', desc: 'Fetch web content', enabled: true },
-            { id: 'desktop-automation', name: 'Desktop Automation', desc: 'Control mouse & keyboard', enabled: true },
-            { id: 'memory', name: 'Memory', desc: 'Persistent knowledge graph', enabled: true }
+            { id: 'filesystem', name: t('mock.mcp.filesystem.name'), desc: t('mock.mcp.filesystem.desc'), enabled: true },
+            { id: 'fetch', name: t('mock.mcp.fetch.name'), desc: t('mock.mcp.fetch.desc'), enabled: true },
+            { id: 'desktop-automation', name: t('mock.mcp.desktop.name'), desc: t('mock.mcp.desktop.desc'), enabled: true },
+            { id: 'memory', name: t('mock.mcp.memory.name'), desc: t('mock.mcp.memory.desc'), enabled: true }
         ];
         mcpContainer.innerHTML = '';
         mockMCPs.forEach(mcp => {
@@ -280,7 +280,7 @@ function initSettingsMock() {
         <span class="mcp-name">${mcp.name}</span>
         <span class="mcp-desc">${mcp.desc}</span>
         <span class="mcp-status ${mcp.enabled ? 'connected' : 'disabled'}">
-          ${mcp.enabled ? 'Enabled' : 'Disabled'}
+          ${mcp.enabled ? t('settings.mcp.enabled') : t('settings.mcp.disabled')}
         </span>
       `;
             mcpContainer.appendChild(item);
@@ -290,20 +290,20 @@ function initSettingsMock() {
     // Audio
     const deviceSelect = document.getElementById('audio-device');
     if (deviceSelect) {
-        deviceSelect.innerHTML = ['Default', 'Microphone Array (Realtek)', 'External USB Mic']
+        deviceSelect.innerHTML = [t('mock.audio.default'), t('mock.audio.array'), t('mock.audio.usb')]
             .map(d => `<option>${d}</option>`).join('');
     }
 
     // Voice
     const engineSelect = document.getElementById('voice-engine');
     if (engineSelect) {
-        engineSelect.innerHTML = ['Google Cloud TTS', 'ElevenLabs', 'System TTS']
+        engineSelect.innerHTML = ['Google Cloud TTS', 'ElevenLabs', t('wizard.p.systemtts.name')]
             .map(e => `<option>${e}</option>`).join('');
     }
 
     const voiceSelect = document.getElementById('voice-voice');
     if (voiceSelect) {
-        voiceSelect.innerHTML = ['tr-TR-Wavenet-A (Female)', 'tr-TR-Wavenet-B (Male)', 'en-US-Neural2-F (Female)']
+        voiceSelect.innerHTML = [t('mock.voice.a'), t('mock.voice.b'), t('mock.voice.c')]
             .map(v => `<option>${v}</option>`).join('');
     }
 
@@ -332,17 +332,19 @@ function initSettingsMock() {
 //  API KEYS
 // ═══════════════════════════════════════
 
+// Labels resolve through the i18n table (i18n.js loads before this file);
+// unknown env keys fall back to the raw key name in renderAPIKeys.
 const API_KEY_LABELS = {
-    'OPENAI_API_KEY': { label: 'OpenAI API Key', icon: '🤖' },
-    'DEEPGRAM_API_KEY': { label: 'Deepgram API Key', icon: '🎙️' },
-    'ELEVENLABS_API_KEY': { label: 'ElevenLabs API Key', icon: '🗣️' },
-    'ELEVENLABS_VOICE_ID': { label: 'ElevenLabs Voice ID', icon: '🎭' },
-    'ELEVENLABS_MODEL_ID': { label: 'ElevenLabs Model ID', icon: '🔧' },
-    'GROQ_API_KEY': { label: 'Groq API Key', icon: '⚡' },
-    'ANTHROPIC_API_KEY': { label: 'Anthropic API Key', icon: '🧠' },
-    'GOOGLE_APPLICATION_CREDENTIALS': { label: 'Google Credentials Path', icon: '☁️' },
-    'SPOTIFY_CLIENT_ID': { label: 'Spotify Client ID', icon: '🎵' },
-    'SPOTIFY_CLIENT_SECRET': { label: 'Spotify Client Secret', icon: '🔐' }
+    'OPENAI_API_KEY': { label: t('apikey.OPENAI_API_KEY'), icon: '🤖' },
+    'DEEPGRAM_API_KEY': { label: t('apikey.DEEPGRAM_API_KEY'), icon: '🎙️' },
+    'ELEVENLABS_API_KEY': { label: t('apikey.ELEVENLABS_API_KEY'), icon: '🗣️' },
+    'ELEVENLABS_VOICE_ID': { label: t('apikey.ELEVENLABS_VOICE_ID'), icon: '🎭' },
+    'ELEVENLABS_MODEL_ID': { label: t('apikey.ELEVENLABS_MODEL_ID'), icon: '🔧' },
+    'GROQ_API_KEY': { label: t('apikey.GROQ_API_KEY'), icon: '⚡' },
+    'ANTHROPIC_API_KEY': { label: t('apikey.ANTHROPIC_API_KEY'), icon: '🧠' },
+    'GOOGLE_APPLICATION_CREDENTIALS': { label: t('apikey.GOOGLE_APPLICATION_CREDENTIALS'), icon: '☁️' },
+    'SPOTIFY_CLIENT_ID': { label: t('apikey.SPOTIFY_CLIENT_ID'), icon: '🎵' },
+    'SPOTIFY_CLIENT_SECRET': { label: t('apikey.SPOTIFY_CLIENT_SECRET'), icon: '🔐' }
 };
 
 async function renderAPIKeys() {
@@ -376,7 +378,7 @@ async function renderAPIKeys() {
                 <span style="font-size: 16px;">${meta.icon}</span>
                 <span class="mcp-name">${meta.label}</span>
                 ${statusDot}
-                <span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); flex: 2; text-align: right;">${keyData.masked || 'Not set'}</span>
+                <span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); flex: 2; text-align: right;">${keyData.masked || t('settings.keys.notSet')}</span>
             `;
 
             const inputRow = document.createElement('div');
@@ -391,26 +393,26 @@ async function renderAPIKeys() {
             input.style.maxWidth = 'none';
             input.style.fontFamily = 'var(--font-mono)';
             input.style.fontSize = '12px';
-            input.placeholder = keyData.has_value ? 'Enter new value to update...' : 'Enter value...';
+            input.placeholder = keyData.has_value ? t('settings.keys.updatePlaceholder') : t('settings.keys.placeholder');
 
             const saveBtn = document.createElement('button');
             saveBtn.className = 'connect-btn';
-            saveBtn.textContent = '💾 Save';
+            saveBtn.textContent = t('settings.keys.save');
             saveBtn.onclick = async () => {
                 const val = input.value.trim();
                 if (!val) return;
-                saveBtn.textContent = '⏳';
+                saveBtn.textContent = t('settings.keys.saving');
                 try {
                     await pywebview.api.set_api_key(keyName, val);
-                    saveBtn.textContent = '✅';
+                    saveBtn.textContent = t('settings.keys.saved');
                     input.value = '';
                     setTimeout(() => {
-                        saveBtn.textContent = '💾 Save';
+                        saveBtn.textContent = t('settings.keys.save');
                         renderAPIKeys(); // Refresh to show updated masked value
                     }, 1500);
                 } catch (e) {
-                    saveBtn.textContent = '❌ Error';
-                    setTimeout(() => saveBtn.textContent = '💾 Save', 2000);
+                    saveBtn.textContent = t('settings.keys.error');
+                    setTimeout(() => saveBtn.textContent = t('settings.keys.save'), 2000);
                 }
             };
 

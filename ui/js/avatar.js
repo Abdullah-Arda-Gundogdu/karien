@@ -7,11 +7,12 @@
  * STATES: idle, listening, thinking, speaking (orb animation states)
  */
 
-const ORB_LABELS = {
-    idle: 'Idle',
-    listening: 'Listening...',
-    thinking: 'Thinking...',
-    speaking: 'Speaking...'
+// i18n keys per orb state — resolved via t() at display time
+const ORB_LABEL_KEYS = {
+    idle: 'state.idle',
+    listening: 'state.listening',
+    thinking: 'state.thinking',
+    speaking: 'state.speaking'
 };
 
 const VALID_MOODS = [
@@ -42,7 +43,7 @@ function setOrbState(state, btn) {
     container.classList.remove('idle', 'listening', 'thinking', 'speaking');
     if (state !== 'idle') container.classList.add(state);
 
-    document.getElementById('statusLabel').textContent = ORB_LABELS[state] || 'Idle';
+    document.getElementById('statusLabel').textContent = t(ORB_LABEL_KEYS[state] || 'state.idle');
 
     if (btn) {
         document.querySelectorAll('.state-btn').forEach(b => b.classList.remove('active'));
@@ -81,7 +82,7 @@ function setMood(mood) {
             neutral: '', happy: '😊', sad: '😢', annoyed: '😤',
             embarrassed: '😳', proud: '✨', curious: '🤔', excited: '⭐', sleepy: '😴'
         };
-        label.textContent = (normalized.charAt(0).toUpperCase() + normalized.slice(1) + ' ' + (moodEmoji[normalized] || '')).trim();
+        label.textContent = (t('mood.' + normalized) + ' ' + (moodEmoji[normalized] || '')).trim();
     }
 }
 
@@ -92,8 +93,9 @@ function setMood(mood) {
 function updateStatus(status) {
     const normalized = status.toLowerCase();
     setOrbState(normalized);
+    // Match on data-state, not the (translated) button text
     document.querySelectorAll('.state-btn').forEach(b => {
-        b.classList.toggle('active', b.textContent.toLowerCase().includes(normalized));
+        b.classList.toggle('active', b.dataset.state === normalized);
     });
 }
 
@@ -118,8 +120,9 @@ function createParticles() {
  * Toggle mute button label.
  */
 function toggleMute(btn) {
-    const muted = btn.textContent.includes('Unmute');
-    btn.innerHTML = muted ? '🎤 Mute' : '🔇 Unmute';
+    // Track state via a class, not the (translated) label text
+    const muted = btn.classList.toggle('muted');
+    btn.textContent = muted ? t('bar.unmute') : t('bar.mute');
 }
 
 // ═══════════════════════════════════════

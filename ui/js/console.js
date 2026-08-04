@@ -12,7 +12,7 @@ const MAX_LOG_ENTRIES = 500;
  * Initialize console: render the boot log line and bind events.
  */
 function initConsole() {
-    addLog('info', 'System initialized. Waiting for backend...');
+    addLog('info', t('console.init'));
 
     // Bind send button
     const sendBtn = document.querySelector('.send-btn');
@@ -93,49 +93,49 @@ async function sendCommand(input) {
         if (cmd === '/mood') {
             if (arg) {
                 setMood(arg);
-                addLog('info', `Mood set to: ${arg}`);
+                addLog('info', t('console.moodSet', { mood: arg }));
             } else {
-                addLog('info', 'Available moods: neutral, happy, sad, annoyed, embarrassed, proud, curious, excited, sleepy');
+                addLog('info', t('console.moodList'));
             }
         } else if (cmd === '/state') {
             if (arg) {
                 setOrbState(arg);
-                addLog('info', `State set to: ${arg}`);
+                addLog('info', t('console.stateSet', { state: arg }));
             } else {
-                addLog('info', 'Available states: idle, listening, thinking, speaking');
+                addLog('info', t('console.stateList'));
             }
         } else if (cmd === '/wake') {
             // Demo the overlay avatar without the microphone (slide-in + listen)
             if (window.pywebview && window.pywebview.api) {
                 try {
                     await pywebview.api.simulate_wake();
-                    addLog('info', 'Overlay avatar: wake (slide-in + listen)');
+                    addLog('info', t('console.wakeOk'));
                 } catch (e) {
-                    addLog('error', `Wake failed: ${e}`);
+                    addLog('error', t('console.wakeFail', { error: e }));
                 }
             } else {
-                addLog('error', 'Backend not available (browser preview mode).');
+                addLog('error', t('console.noBackend'));
             }
         } else if (cmd === '/sleep') {
             // Demo the overlay avatar goodbye (slide-out + hide)
             if (window.pywebview && window.pywebview.api) {
                 try {
                     await pywebview.api.simulate_sleep();
-                    addLog('info', 'Overlay avatar: sleep (slide-out + hide)');
+                    addLog('info', t('console.sleepOk'));
                 } catch (e) {
-                    addLog('error', `Sleep failed: ${e}`);
+                    addLog('error', t('console.sleepFail', { error: e }));
                 }
             } else {
-                addLog('error', 'Backend not available (browser preview mode).');
+                addLog('error', t('console.noBackend'));
             }
         } else if (cmd === '/help') {
-            addLog('info', 'Commands: /mood [name] | /state [name] | /wake | /sleep | /help');
-            addLog('info', 'Moods: neutral, happy, sad, annoyed, embarrassed, proud, curious, excited, sleepy');
-            addLog('info', 'States: idle, listening, thinking, speaking');
-            addLog('info', '/wake and /sleep demo the overlay avatar (no mic needed).');
-            addLog('info', 'Anything else is sent to the LLM as a chat message.');
+            addLog('info', t('console.helpCommands'));
+            addLog('info', t('console.moodList'));
+            addLog('info', t('console.stateList'));
+            addLog('info', t('console.helpWakeSleep'));
+            addLog('info', t('console.helpChat'));
         } else {
-            addLog('error', 'Unknown command: ' + cmd + '. Type /help for available commands.');
+            addLog('error', t('console.unknownCommand', { cmd: cmd }));
         }
         return;
     }
@@ -147,7 +147,7 @@ async function sendCommand(input) {
         try {
             await pywebview.api.send_command(text);
         } catch (e) {
-            addLog('error', `Failed to send: ${e}`);
+            addLog('error', t('console.sendFail', { error: e }));
         }
     }
 }

@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="tr">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Karien — Setup</title>
+  <title data-i18n="wizard.title">Karien — Kurulum</title>
   <link rel="stylesheet" href="css/variables.css">
   <link rel="stylesheet" href="css/wizard.css">
 </head>
@@ -14,7 +14,7 @@
       <!-- Branding -->
       <div class="wizard-branding">
         <div class="brand-name">Karien</div>
-        <div class="brand-tagline">Let's get you set up ✨</div>
+        <div class="brand-tagline" data-i18n="wizard.tagline">Hadi seni hazırlayalım ✨</div>
       </div>
 
       <!-- Progress -->
@@ -33,8 +33,8 @@
         <div class="wizard-step active" id="wizard-step-0">
           <div class="step-header">
             <span class="step-emoji">🎙️</span>
-            <h2 class="step-title">Choose your ears</h2>
-            <p class="step-subtitle">Pick how Karien listens to you</p>
+            <h2 class="step-title" data-i18n="wizard.step0.title">Kulaklarını seç</h2>
+            <p class="step-subtitle" data-i18n="wizard.step0.subtitle">Karien seni nasıl dinlesin?</p>
           </div>
           <div class="provider-cards" id="step-0-cards"></div>
         </div>
@@ -43,8 +43,8 @@
         <div class="wizard-step" id="wizard-step-1">
           <div class="step-header">
             <span class="step-emoji">🧠</span>
-            <h2 class="step-title">Choose your brain</h2>
-            <p class="step-subtitle">Pick the AI model that powers Karien's thinking</p>
+            <h2 class="step-title" data-i18n="wizard.step1.title">Beynini seç</h2>
+            <p class="step-subtitle" data-i18n="wizard.step1.subtitle">Karien'in düşünme gücünü hangi model versin?</p>
           </div>
           <div class="provider-cards" id="step-1-cards"></div>
         </div>
@@ -53,8 +53,8 @@
         <div class="wizard-step" id="wizard-step-2">
           <div class="step-header">
             <span class="step-emoji">🗣️</span>
-            <h2 class="step-title">Choose your voice</h2>
-            <p class="step-subtitle">Pick how Karien speaks back to you</p>
+            <h2 class="step-title" data-i18n="wizard.step2.title">Sesini seç</h2>
+            <p class="step-subtitle" data-i18n="wizard.step2.subtitle">Karien sana nasıl seslensin?</p>
           </div>
           <div class="provider-cards" id="step-2-cards"></div>
         </div>
@@ -63,21 +63,22 @@
 
       <!-- Navigation -->
       <div class="wizard-nav">
-        <button class="wizard-btn secondary" id="wizard-prev" onclick="prevStep()" style="display:none;">
-          ← Back
+        <button class="wizard-btn secondary" id="wizard-prev" onclick="prevStep()" style="display:none;" data-i18n="wizard.back">
+          ← Geri
         </button>
-        <span class="step-counter" id="step-counter">Step 1 of 3</span>
-        <button class="wizard-btn primary" id="wizard-next" onclick="nextStep()">
-          Next →
+        <span class="step-counter" id="step-counter">Adım 1 / 3</span>
+        <button class="wizard-btn primary" id="wizard-next" onclick="nextStep()" data-i18n="wizard.next">
+          İleri →
         </button>
-        <button class="wizard-btn finish" id="wizard-finish" onclick="finishWizard()" style="display:none;">
-          Let's Go! 🚀
+        <button class="wizard-btn finish" id="wizard-finish" onclick="finishWizard()" style="display:none;" data-i18n="wizard.finish">
+          Başlayalım! 🚀
         </button>
       </div>
 
     </div>
   </div>
 
+  <script src="js/i18n.js"></script>
   <script src="js/util.js"></script>
   <script src="js/wizard.js"></script>
 </body>

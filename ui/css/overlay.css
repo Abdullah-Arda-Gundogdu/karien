@@ -73,6 +73,9 @@ body {
 }
 
 /* ───── STATUS LABEL (minimal, cute) ───── */
+/* Text content is set by overlay.js via t('overlay.state.*') — no CSS
+   content: rules, so the labels live in the i18n table like everything
+   else. */
 .status-label {
     margin-top: 10px;
     height: 16px;
@@ -80,16 +83,4 @@ body {
     color: rgba(255, 255, 255, 0.9);
     letter-spacing: 0.5px;
     text-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
-}
-
-#avatar-root[data-state="listen"] .status-label::after {
-    content: "dinliyorum~";
-}
-
-#avatar-root[data-state="think"] .status-label::after {
-    content: "düşünüyorum…";
-}
-
-#avatar-root[data-state="speak"] .status-label::after {
-    content: "♪";
 }

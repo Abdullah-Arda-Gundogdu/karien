@@ -21,6 +21,19 @@
         return document.getElementById('avatar-root');
     }
 
+    // States that show a cute status label under the avatar.
+    const LABELED_STATES = ['listen', 'think', 'speak'];
+
+    /** Sync the .status-label text with the given state (i18n table). */
+    function updateStatusLabel(r, state) {
+        const label = r.querySelector('.status-label');
+        if (!label) return;
+        label.textContent =
+            LABELED_STATES.includes(state) && typeof window.t === 'function'
+                ? window.t('overlay.state.' + state)
+                : '';
+    }
+
     // ───── Python-called globals ─────
 
     window.overlaySlideIn = function () {
@@ -35,11 +48,14 @@
         // Reset state so the speak mouth / status label don't linger through
         // the slide-out, and the next show doesn't flash the previous state.
         r.dataset.state = 'hidden';
+        updateStatusLabel(r, 'hidden');
     };
 
     window.overlaySetState = function (state) {
         const r = root();
-        if (r) r.dataset.state = state;
+        if (!r) return;
+        r.dataset.state = state;
+        updateStatusLabel(r, state);
     };
 
     window.overlaySetMood = function (mood) {
