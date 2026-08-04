@@ -68,7 +68,7 @@
             'bar.screenshotFail': 'Ekran görüntüsü alınamadı.',
 
             // ───── Konsol ─────
-            'console.title': '⌘ Konsol Çıktısı',
+            'console.title': 'Konsol Çıktısı',
             'console.clear': 'Temizle',
             'console.autoScroll': 'Otomatik Kaydırma',
             'console.inputPlaceholder': 'Komutunu buraya yaz...',

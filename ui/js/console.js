@@ -8,6 +8,16 @@
 // Hard cap on rendered log entries: oldest DOM nodes are dropped beyond this.
 const MAX_LOG_ENTRIES = 500;
 
+// The 5 real log levels → chip modifier (components.css .chip family).
+// Anything else (unknown/legacy levels) falls back to 'info'.
+const LOG_LEVEL_CHIPS = {
+    info: '',
+    user: 'chip--sakura',
+    llm: 'chip--lavanta',
+    tool: 'chip--peach',
+    error: 'chip--coral'
+};
+
 /**
  * Initialize console: render the boot log line and bind events.
  */
@@ -15,7 +25,7 @@ function initConsole() {
     addLog('info', t('console.init'));
 
     // Bind send button
-    const sendBtn = document.querySelector('.send-btn');
+    const sendBtn = document.getElementById('btn-send');
     const input = document.querySelector('.console-input');
     if (sendBtn && input) {
         sendBtn.addEventListener('click', () => sendCommand(input));
@@ -24,15 +34,15 @@ function initConsole() {
         });
     }
 
-    // Toolbar: clear button + auto-scroll toggle (inline onclick yok)
+    // Toolbar: clear button + auto-scroll toggle (shared .toggle component)
     const clearBtn = document.getElementById('btn-clear-logs');
     if (clearBtn) clearBtn.addEventListener('click', clearLogs);
 
     const autoScroll = document.getElementById('autoscroll-toggle');
     if (autoScroll) {
         autoScroll.addEventListener('click', () => {
-            const track = autoScroll.querySelector('.toggle-track');
-            if (track) track.classList.toggle('on');
+            const on = autoScroll.classList.toggle('is-on');
+            autoScroll.setAttribute('aria-checked', String(on));
         });
     }
 }
@@ -40,12 +50,16 @@ function initConsole() {
 /**
  * Add a log entry (called from Python via evaluate_js).
  * Appends exactly one DOM node; never re-renders the whole list.
- * @param {string} level - 'info' | 'user' | 'llm' | 'tool' | 'tts' | 'error' | 'mcp'
+ * @param {string} level - 'info' | 'user' | 'llm' | 'tool' | 'error'
+ *                         (unknown levels are rendered as 'info')
  * @param {string} message - The log message
  */
 function addLog(level, message) {
     const area = document.getElementById('logArea');
     if (!area) return;
+
+    const lvl = Object.prototype.hasOwnProperty.call(LOG_LEVEL_CHIPS, level)
+        ? level : 'info';
 
     const entry = document.createElement('div');
     entry.className = 'log-entry';
@@ -55,8 +69,8 @@ function addLog(level, message) {
     time.textContent = now();
 
     const badge = document.createElement('span');
-    badge.className = 'log-badge ' + level;
-    badge.textContent = String(level).toUpperCase();
+    badge.className = 'chip log-chip' + (LOG_LEVEL_CHIPS[lvl] ? ' ' + LOG_LEVEL_CHIPS[lvl] : '');
+    badge.textContent = lvl.toUpperCase();
 
     const msg = document.createElement('span');
     msg.className = 'log-msg';
@@ -73,8 +87,8 @@ function addLog(level, message) {
     }
 
     // Auto-scroll if enabled
-    const toggle = document.querySelector('.toggle-track');
-    if (toggle && toggle.classList.contains('on')) {
+    const toggle = document.getElementById('autoscroll-toggle');
+    if (toggle && toggle.classList.contains('is-on')) {
         area.scrollTop = area.scrollHeight;
     }
 }

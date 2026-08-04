@@ -154,20 +154,28 @@
             <div class="view" id="view-console">
                 <div class="console-view">
                     <div class="console-toolbar">
-                        <span class="title" data-i18n="console.title">⌘ Konsol Çıktısı</span>
-                        <button class="toolbar-btn" id="btn-clear-logs" data-i18n="console.clear">Temizle</button>
-                        <div class="toggle-switch" id="autoscroll-toggle">
-                            <div class="toggle-track on"></div>
+                        <span class="title">
+                            <svg class="icon"><use href="#icon-terminal"/></svg>
+                            <span data-i18n="console.title">Konsol Çıktısı</span>
+                        </span>
+                        <div class="autoscroll">
+                            <button type="button" class="toggle is-on" id="autoscroll-toggle" role="switch"
+                                aria-checked="true" data-i18n-title="console.autoScroll"></button>
                             <span data-i18n="console.autoScroll">Otomatik Kaydırma</span>
                         </div>
+                        <button type="button" class="btn btn--ghost btn--sm" id="btn-clear-logs"
+                            data-i18n="console.clear">Temizle</button>
                     </div>
                     <div class="log-area" id="logArea">
                         <!-- filled by console.js -->
                     </div>
                     <div class="console-input-bar">
                         <span class="prompt-char">❯</span>
-                        <input class="console-input" type="text" data-i18n-placeholder="console.inputPlaceholder" placeholder="Komutunu buraya yaz..." />
-                        <button class="send-btn" data-i18n="console.send">Gönder</button>
+                        <input class="field console-input" type="text" data-i18n-placeholder="console.inputPlaceholder" placeholder="Komutunu buraya yaz..." />
+                        <button type="button" class="btn btn--primary" id="btn-send">
+                            <svg class="icon"><use href="#icon-send"/></svg>
+                            <span data-i18n="console.send">Gönder</span>
+                        </button>
                     </div>
                 </div>
             </div>
