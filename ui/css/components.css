@@ -1,0 +1,496 @@
+/* ═══════════════════════════════════════════════════════════
+   Karien — Komponent Kiti
+   tokens.css üstünde tek görsel dil. Sonraki fazlar (kabuk,
+   konsol, ayarlar, sihirbaz) yalnızca bu sınıfları kullanır.
+
+   KULLANIM
+   ─ Buton:   <button class="btn btn--primary">Kaydet</button>
+              çeşitler: --primary (sakura dolgu, koyu metin),
+              --soft, --ghost, --danger; boyut: --sm
+   ─ İkon:    <svg class="icon"><use href="img/icons.svg#icon-mic"/></svg>
+   ─ Alan:    <input class="field"> / <select class="field">
+              etiketli satır: .field-row > .field-label + .field
+   ─ Slider:  <input type="range" class="slider"> (+ .slider-value)
+   ─ Kart:    .card, seçilebilir: .card--select (+ .is-selected)
+   ─ Çip:     <span class="chip chip--mint">Çevrimiçi</span>
+              renkler: --sakura --lavanta --mint --peach --coral
+   ─ Toggle:  <button class="toggle" role="switch" aria-checked="true">
+              açık durum: .is-on (JS class'ı çevirir)
+   ─ Bölüm:   .section > .section-header (.section-title,
+              .section-chevron) + .section-body; kapalı: .is-closed
+   ─ Toast:   js/toast.js → showToast(mesaj, tur)
+              tur: 'info' | 'success' | 'warn' | 'error'
+   ═══════════════════════════════════════════════════════════ */
+
+/* ───── İkon ───── */
+.icon {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  stroke: currentColor;
+  fill: none;
+  vertical-align: -3px;
+}
+
+.icon--lg {
+  width: 24px;
+  height: 24px;
+}
+
+/* ───── Buton ───── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-4);
+  border: 1px solid transparent;
+  border-radius: var(--r-pill);
+  font-family: var(--font-main);
+  font-size: var(--fs-md);
+  font-weight: var(--fw-bold);
+  line-height: 1.4;
+  color: var(--text-1);
+  background: var(--ground-3);
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out),
+    transform var(--dur-med) var(--ease-spring);
+}
+
+.btn:hover {
+  background: var(--ground-4);
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--lavanta);
+  outline-offset: 2px;
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn--primary {
+  background: var(--sakura);
+  color: var(--ground-0);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn--primary:hover {
+  background: #ffb8d0;
+  box-shadow: var(--glow-sakura);
+}
+
+.btn--soft {
+  background: var(--sakura-soft);
+  color: var(--sakura);
+}
+
+.btn--soft:hover {
+  background: rgba(255, 167, 196, 0.26);
+}
+
+.btn--ghost {
+  background: transparent;
+  border-color: var(--line);
+  color: var(--text-2);
+}
+
+.btn--ghost:hover {
+  background: var(--ground-3);
+  color: var(--text-1);
+}
+
+.btn--danger {
+  background: var(--coral-soft);
+  color: var(--coral);
+}
+
+.btn--danger:hover {
+  background: rgba(255, 155, 155, 0.28);
+}
+
+.btn--sm {
+  padding: var(--sp-1) var(--sp-3);
+  font-size: var(--fs-sm);
+}
+
+/* ───── Alan (input / select) ───── */
+.field-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: var(--sp-3) 0;
+}
+
+.field-label {
+  flex: none;
+  width: 140px;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-medium);
+  color: var(--text-2);
+}
+
+.field {
+  flex: 1;
+  min-width: 0;
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--ground-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  font-family: var(--font-main);
+  font-size: var(--fs-md);
+  font-weight: var(--fw-regular);
+  color: var(--text-1);
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.field::placeholder {
+  color: var(--text-3);
+}
+
+.field:hover {
+  border-color: var(--text-3);
+}
+
+.field:focus {
+  outline: none;
+  border-color: var(--sakura);
+  box-shadow: 0 0 0 3px var(--sakura-soft);
+}
+
+select.field {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a99fc2' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right var(--sp-3) center;
+  padding-right: var(--sp-8);
+  cursor: pointer;
+}
+
+/* ───── Slider ───── */
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex: 1;
+}
+
+.slider {
+  flex: 1;
+  height: 6px;
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--ground-4);
+  border-radius: var(--r-pill);
+  outline: none;
+  cursor: pointer;
+}
+
+.slider::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--sakura);
+  border: none;
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--dur-med) var(--ease-spring), box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: var(--glow-sakura);
+}
+
+.slider:active::-webkit-slider-thumb {
+  transform: scale(0.97);
+}
+
+.slider-value {
+  flex: none;
+  min-width: 44px;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--sakura);
+}
+
+/* ───── Kart ───── */
+.card {
+  background: var(--ground-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: var(--sp-4);
+  box-shadow: var(--shadow-sm);
+}
+
+.card--select {
+  cursor: pointer;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out),
+    transform var(--dur-med) var(--ease-spring);
+}
+
+.card--select:hover {
+  border-color: var(--text-3);
+  transform: translateY(-1px);
+}
+
+.card--select:active {
+  transform: scale(0.98);
+}
+
+.card--select.is-selected {
+  border-color: var(--sakura);
+  background: linear-gradient(var(--sakura-soft), var(--sakura-soft)), var(--ground-2);
+  box-shadow: var(--glow-sakura);
+}
+
+/* ───── Çip / rozet ───── */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: 2px var(--sp-3);
+  border-radius: var(--r-pill);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
+  letter-spacing: 0.4px;
+  background: var(--ground-4);
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.chip--sakura {
+  background: var(--sakura-soft);
+  color: var(--sakura);
+}
+
+.chip--lavanta {
+  background: var(--lavanta-soft);
+  color: var(--lavanta);
+}
+
+.chip--mint {
+  background: var(--mint-soft);
+  color: var(--mint);
+}
+
+.chip--peach {
+  background: var(--peach-soft);
+  color: var(--peach);
+}
+
+.chip--coral {
+  background: var(--coral-soft);
+  color: var(--coral);
+}
+
+/* tıklanabilir çip (deri/ifade seçiciler) */
+.chip--action {
+  cursor: pointer;
+  padding: var(--sp-1) var(--sp-3);
+  border: 1px solid var(--line);
+  background: var(--ground-3);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-med) var(--ease-spring);
+}
+
+.chip--action:hover {
+  color: var(--text-1);
+  border-color: var(--text-3);
+}
+
+.chip--action:active {
+  transform: scale(0.95);
+}
+
+.chip--action.is-selected {
+  background: var(--sakura-soft);
+  border-color: var(--sakura);
+  color: var(--sakura);
+}
+
+/* ───── Toggle (anahtar) ───── */
+.toggle {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  flex: none;
+  border: none;
+  border-radius: var(--r-pill);
+  background: var(--ground-4);
+  cursor: pointer;
+  transition: background var(--dur-med) var(--ease-out);
+}
+
+.toggle::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--text-2);
+  transition:
+    transform var(--dur-med) var(--ease-spring),
+    background var(--dur-med) var(--ease-out);
+}
+
+.toggle.is-on {
+  background: var(--sakura);
+}
+
+.toggle.is-on::after {
+  transform: translateX(18px);
+  background: var(--ground-0);
+}
+
+.toggle:focus-visible {
+  outline: 2px solid var(--lavanta);
+  outline-offset: 2px;
+}
+
+/* ───── Bölüm (ayarlar akordeonu) ───── */
+.section {
+  background: var(--ground-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  margin-bottom: var(--sp-4);
+  overflow: hidden;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+.section-header:hover {
+  background: var(--ground-3);
+}
+
+.section-title {
+  flex: 1;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-bold);
+  color: var(--text-1);
+}
+
+.section-chevron {
+  color: var(--text-3);
+  transition: transform var(--dur-med) var(--ease-spring);
+}
+
+.section.is-closed .section-chevron {
+  transform: rotate(-90deg);
+}
+
+.section-body {
+  padding: 0 var(--sp-4) var(--sp-4);
+}
+
+.section.is-closed .section-body {
+  display: none;
+}
+
+/* ───── Toast (js/toast.js) ───── */
+.toast-stack {
+  position: fixed;
+  bottom: var(--sp-6);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+  z-index: 10000;
+  pointer-events: none;
+}
+
+.toast {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  max-width: 420px;
+  padding: var(--sp-3) var(--sp-5);
+  background: var(--ground-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  box-shadow: var(--shadow-md);
+  font-size: var(--fs-md);
+  font-weight: var(--fw-medium);
+  color: var(--text-1);
+  animation: toast-in var(--dur-med) var(--ease-spring);
+}
+
+.toast.is-leaving {
+  animation: toast-out var(--dur-med) var(--ease-out) forwards;
+}
+
+.toast--success {
+  border-color: var(--mint);
+  color: var(--mint);
+}
+
+.toast--warn {
+  border-color: var(--peach);
+  color: var(--peach);
+}
+
+.toast--error {
+  border-color: var(--coral);
+  color: var(--coral);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes toast-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.95);
+  }
+}
