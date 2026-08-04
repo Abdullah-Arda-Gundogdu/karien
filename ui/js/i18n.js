@@ -158,10 +158,10 @@
             'wizard.saving': '⏳ Kaydediliyor...',
             'wizard.done.title': 'Her şey hazır!',
             'wizard.done.subtitle': 'Karien kullanıma hazır. Birazdan başlıyoruz...',
-            'wizard.difficulty.easy': '🟢 Kolay',
-            'wizard.difficulty.medium': '🟡 Orta',
-            'wizard.difficulty.hard': '🔴 Zor',
-            'wizard.offlineBadge': '✨ Çevrimdışı çalışır — internet gerekmez!',
+            'wizard.difficulty.easy': 'Kolay',
+            'wizard.difficulty.medium': 'Orta',
+            'wizard.recommended': 'Önerilen',
+            'wizard.offlineBadge': 'Çevrimdışı',
 
             // ───── Sihirbaz — doğrulama ─────
             'wizard.required': 'Bu alan zorunlu',
@@ -169,34 +169,21 @@
             'wizard.val.prefix': '{prefix} ile başlamalı',
             'wizard.val.OPENAI_API_KEY': 'OpenAI anahtarı sk- ile başlamalı ve en az 20 karakter olmalı',
             'wizard.val.DEEPGRAM_API_KEY': 'Deepgram anahtarı en az 20 karakter olmalı',
-            'wizard.val.GROQ_API_KEY': 'Groq anahtarı gsk_ ile başlamalı ve en az 15 karakter olmalı',
-            'wizard.val.ANTHROPIC_API_KEY': 'Anthropic anahtarı sk-ant- ile başlamalı ve en az 20 karakter olmalı',
             'wizard.val.ELEVENLABS_API_KEY': 'ElevenLabs anahtarı en az 15 karakter olmalı',
             'wizard.val.ELEVENLABS_VOICE_ID': 'Ses kimliği en az 10 karakter olmalı',
-            'wizard.val.GOOGLE_APPLICATION_CREDENTIALS': 'Geçerli bir dosya yolu gir',
 
             // ───── Sihirbaz — sağlayıcılar (STT) ─────
             'wizard.p.deepgram.desc': 'Hızlı, isabetli, gerçek zamanlı akış. Türkçe ve çok dilli kullanım için en iyisi.',
             'wizard.p.deepgram.key.label': 'API Anahtarı',
             'wizard.p.deepgram.key.placeholder': 'Deepgram API anahtarını gir',
             'wizard.p.deepgram.key.hint': 'Ücretsiz anahtarını <a href="https://console.deepgram.com" target="_blank">console.deepgram.com</a> adresinden alabilirsin',
-            'wizard.p.whisper.desc': 'OpenAI destekli, yüksek isabetli konuşma tanıma.',
-            'wizard.p.whisper.key.label': 'OpenAI API Anahtarı',
-            'wizard.p.whisper.key.hint': 'OpenAI anahtarını kullanır. <a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com</a> üzerinden oluşturabilirsin',
             'wizard.p.vosk.name': 'Vosk (Yerel)',
-            'wizard.p.vosk.desc': '%100 çevrimdışı, kendi bilgisayarında çalışır. API anahtarı gerekmez!',
+            'wizard.p.vosk.desc': 'Kendi bilgisayarında çalışır, API anahtarı gerekmez — ama yalnızca uyandırma sözcüğünü tanır. Sesli komutlar için Deepgram gerekir.',
 
             // ───── Sihirbaz — sağlayıcılar (LLM) ─────
             'wizard.p.openai.desc': 'GPT-4o, GPT-4o-mini — zekâda endüstri standardı.',
             'wizard.p.openai.key.label': 'API Anahtarı',
             'wizard.p.openai.key.hint': 'Anahtarını <a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com</a> adresinden alabilirsin',
-            'wizard.p.groq.desc': 'Llama ve Mixtral modelleri için ışık hızında yanıtlar. Ücretsiz katmanı var!',
-            'wizard.p.groq.key.label': 'API Anahtarı',
-            'wizard.p.groq.key.hint': 'Ücretsiz anahtarını <a href="https://console.groq.com" target="_blank">console.groq.com</a> adresinden alabilirsin',
-            'wizard.p.anthropic.desc': 'Claude Sonnet ve Haiku — akıl yürütmede ve kod işlerinde harika.',
-            'wizard.p.anthropic.warning': '⚠️ Anthropic farklı bir API biçimi kullanır. Tam destek yolda — temel sohbet çalışır ama araç çağırma sınırlı olabilir.',
-            'wizard.p.anthropic.key.label': 'API Anahtarı',
-            'wizard.p.anthropic.key.hint': 'Anahtarını <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> adresinden alabilirsin',
             'wizard.p.ollama.name': 'Ollama (Yerel)',
             'wizard.p.ollama.desc': 'Modelleri kendi bilgisayarında çalıştır. Tamamen ücretsiz ve gizliliğe saygılı.',
             'wizard.p.ollama.warning': '⚠️ Önce Ollama\'yı kurup bir model indirmen gerekir (ör. <code>ollama pull llama3.2</code>). Performans donanımına bağlıdır.',
@@ -216,14 +203,7 @@
             'wizard.p.eleven.voice.placeholder': 'ör. fUjY9K2nAIwlALOwSiwc',
             'wizard.p.eleven.voice.hint': 'Ses kimliklerini ElevenLabs ses kitaplığında bulabilirsin',
             'wizard.p.eleven.model.label': 'Model Kimliği',
-            'wizard.p.eleven.model.hint': 'Varsayılan: eleven_flash_v2_5',
-            'wizard.p.googletts.desc': 'Bol dil seçenekli, yüksek kaliteli WaveNet sesleri.',
-            'wizard.p.googletts.warning': '🔴 Kurulumu en zor olan bu! Google Cloud projesi açman, Text-to-Speech API\'sini etkinleştirmen, bir Servis Hesabı oluşturup JSON kimlik dosyasını indirmen gerekir. Sadece API anahtarı yetmez!',
-            'wizard.p.googletts.path.label': 'Servis Hesabı JSON Yolu',
-            'wizard.p.googletts.path.placeholder': '/yol/servis-hesabi.json',
-            'wizard.p.googletts.path.hint': 'Google Cloud servis hesabı JSON dosyanın tam yolu',
-            'wizard.p.systemtts.name': 'Sistem TTS',
-            'wizard.p.systemtts.desc': 'İşletim sisteminin yerleşik sesini kullanır. Kurulum gerekmez!'
+            'wizard.p.eleven.model.hint': 'Varsayılan: eleven_flash_v2_5'
         }
     };
 

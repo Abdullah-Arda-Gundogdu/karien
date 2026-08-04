@@ -383,6 +383,12 @@ class KarienAPI:
                     if value and value.strip():
                         env_updates[key] = value.strip()
 
+            # LLM seçimi ilk kez motora ulaşır: config.py .env'den
+            # LLM_PROVIDER okur, settings.json'u kimse okumuyor.
+            wizard_llm_provider = data.get('llm', {}).get('provider', '')
+            if wizard_llm_provider in ('openai', 'ollama'):
+                env_updates['LLM_PROVIDER'] = wizard_llm_provider
+
             # 2. Read existing .env, update keys
             existing_lines = []
             existing_keys = set()
@@ -417,24 +423,20 @@ class KarienAPI:
                 with open(SETTINGS_PATH, 'r') as f:
                     settings = json.load(f)
 
-            # Map wizard providers to settings
+            # Map wizard providers to settings (only providers the wizard
+            # actually offers after the honest-card reduction)
             provider_map = {
                 'stt': {
                     'deepgram': 'Deepgram',
-                    'whisper_openai': 'Whisper (OpenAI)',
                     'vosk': 'Vosk (Local)'
                 },
                 'llm': {
                     'openai': 'OpenAI',
-                    'groq': 'Groq',
-                    'anthropic': 'Anthropic',
                     'ollama': 'Ollama (Local)'
                 },
                 'tts': {
                     'openai_tts': 'OpenAI TTS',
-                    'elevenlabs': 'ElevenLabs',
-                    'google_tts': 'Google Cloud TTS',
-                    'system_tts': 'System TTS'
+                    'elevenlabs': 'ElevenLabs'
                 }
             }
 
@@ -456,8 +458,6 @@ class KarienAPI:
             # Set default model for selected provider
             default_models = {
                 'openai': 'gpt-4o',
-                'groq': 'llama-3.3-70b-versatile',
-                'anthropic': 'claude-sonnet-4-20250514',
                 'ollama': 'llama3.2'
             }
             settings['llm']['model'] = default_models.get(llm_provider_id, 'gpt-4o')

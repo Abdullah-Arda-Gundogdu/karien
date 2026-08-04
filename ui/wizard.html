@@ -6,6 +6,7 @@
   <title data-i18n="wizard.title">Karien — Kurulum</title>
   <link rel="stylesheet" href="css/tokens.css">
   <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/components.css">
   <link rel="stylesheet" href="css/wizard.css">
 </head>
 <body class="app-page">
@@ -62,16 +63,16 @@
 
       </div>
 
-      <!-- Navigation -->
+      <!-- Navigation (bindings live in wizard.js — no inline onclick) -->
       <div class="wizard-nav">
-        <button class="wizard-btn secondary" id="wizard-prev" onclick="prevStep()" style="display:none;" data-i18n="wizard.back">
+        <button class="btn btn--ghost" id="wizard-prev" style="display:none;" data-i18n="wizard.back">
           ← Geri
         </button>
         <span class="step-counter" id="step-counter">Adım 1 / 3</span>
-        <button class="wizard-btn primary" id="wizard-next" onclick="nextStep()" data-i18n="wizard.next">
+        <button class="btn btn--primary" id="wizard-next" data-i18n="wizard.next">
           İleri →
         </button>
-        <button class="wizard-btn finish" id="wizard-finish" onclick="finishWizard()" style="display:none;" data-i18n="wizard.finish">
+        <button class="btn btn--primary" id="wizard-finish" style="display:none;" data-i18n="wizard.finish">
           Başlayalım! 🚀
         </button>
       </div>

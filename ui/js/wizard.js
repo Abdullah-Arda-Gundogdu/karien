@@ -23,6 +23,8 @@ const wizardState = {
 // ═══════════════════════════════════════
 
 // All user-facing text resolves through the i18n table (i18n.js loads first).
+// Only providers the engine actually supports are offered (honest cards):
+// STT Deepgram/Vosk, LLM OpenAI/Ollama, TTS OpenAI TTS/ElevenLabs.
 const PROVIDERS = {
     stt: [
         {
@@ -30,17 +32,9 @@ const PROVIDERS = {
             name: 'Deepgram',
             desc: t('wizard.p.deepgram.desc'),
             difficulty: 'easy',
+            recommended: true,
             fields: [
                 { key: 'DEEPGRAM_API_KEY', label: t('wizard.p.deepgram.key.label'), placeholder: t('wizard.p.deepgram.key.placeholder'), hint: t('wizard.p.deepgram.key.hint') }
-            ]
-        },
-        {
-            id: 'whisper_openai',
-            name: 'Whisper (OpenAI)',
-            desc: t('wizard.p.whisper.desc'),
-            difficulty: 'easy',
-            fields: [
-                { key: 'OPENAI_API_KEY', label: t('wizard.p.whisper.key.label'), placeholder: 'sk-...', hint: t('wizard.p.whisper.key.hint') }
             ]
         },
         {
@@ -60,29 +54,7 @@ const PROVIDERS = {
             difficulty: 'easy',
             fields: [
                 { key: 'OPENAI_API_KEY', label: t('wizard.p.openai.key.label'), placeholder: 'sk-...', hint: t('wizard.p.openai.key.hint') }
-            ],
-            models: ['gpt-4o', 'gpt-4o-mini', 'gpt-3.5-turbo']
-        },
-        {
-            id: 'groq',
-            name: 'Groq',
-            desc: t('wizard.p.groq.desc'),
-            difficulty: 'easy',
-            fields: [
-                { key: 'GROQ_API_KEY', label: t('wizard.p.groq.key.label'), placeholder: 'gsk_...', hint: t('wizard.p.groq.key.hint') }
-            ],
-            models: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768']
-        },
-        {
-            id: 'anthropic',
-            name: 'Anthropic',
-            desc: t('wizard.p.anthropic.desc'),
-            difficulty: 'medium',
-            warning: t('wizard.p.anthropic.warning'),
-            fields: [
-                { key: 'ANTHROPIC_API_KEY', label: t('wizard.p.anthropic.key.label'), placeholder: 'sk-ant-...', hint: t('wizard.p.anthropic.key.hint') }
-            ],
-            models: ['claude-sonnet-4-20250514', 'claude-3-5-haiku-20241022']
+            ]
         },
         {
             id: 'ollama',
@@ -92,8 +64,7 @@ const PROVIDERS = {
             warning: t('wizard.p.ollama.warning'),
             fields: [
                 { key: 'OLLAMA_BASE_URL', label: t('wizard.p.ollama.url.label'), placeholder: 'http://localhost:11434/v1', hint: t('wizard.p.ollama.url.hint'), defaultValue: 'http://localhost:11434/v1' }
-            ],
-            models: ['llama3.2', 'mistral', 'gemma2']
+            ]
         }
     ],
     tts: [
@@ -117,27 +88,12 @@ const PROVIDERS = {
                 { key: 'ELEVENLABS_VOICE_ID', label: t('wizard.p.eleven.voice.label'), placeholder: t('wizard.p.eleven.voice.placeholder'), hint: t('wizard.p.eleven.voice.hint') },
                 { key: 'ELEVENLABS_MODEL_ID', label: t('wizard.p.eleven.model.label'), placeholder: 'eleven_flash_v2_5', hint: t('wizard.p.eleven.model.hint'), defaultValue: 'eleven_flash_v2_5' }
             ]
-        },
-        {
-            id: 'google_tts',
-            name: 'Google Cloud TTS',
-            desc: t('wizard.p.googletts.desc'),
-            difficulty: 'hard',
-            warning: t('wizard.p.googletts.warning'),
-            fields: [
-                { key: 'GOOGLE_APPLICATION_CREDENTIALS', label: t('wizard.p.googletts.path.label'), placeholder: t('wizard.p.googletts.path.placeholder'), hint: t('wizard.p.googletts.path.hint') }
-            ]
-        },
-        {
-            id: 'system_tts',
-            name: t('wizard.p.systemtts.name'),
-            desc: t('wizard.p.systemtts.desc'),
-            difficulty: 'easy',
-            offline: true,
-            fields: []
         }
     ]
 };
+
+// difficulty → chip color (only easy/medium exist after the card reduction)
+const DIFFICULTY_CHIPS = { easy: 'chip--mint', medium: 'chip--peach' };
 
 // ═══════════════════════════════════════
 //  RENDERING
@@ -158,30 +114,34 @@ function renderWizardStep(stepIndex) {
 
     providers.forEach(provider => {
         const card = document.createElement('div');
-        card.className = 'provider-card';
+        card.className = 'card card--select provider-card';
         card.dataset.providerId = provider.id;
         card.dataset.type = type;
         card.onclick = () => selectProvider(type, provider.id);
 
-        // Header row
+        // Header row: name + chips (recommended / offline / difficulty)
+        let chips = '';
+        if (provider.recommended) {
+            chips += `<span class="chip chip--sakura">${t('wizard.recommended')}</span>`;
+        }
+        if (provider.offline) {
+            chips += `<span class="chip chip--mint">${t('wizard.offlineBadge')}</span>`;
+        } else {
+            chips += `<span class="chip ${DIFFICULTY_CHIPS[provider.difficulty] || ''}">${t('wizard.difficulty.' + provider.difficulty)}</span>`;
+        }
+
         let html = `
       <div class="provider-card-header">
-        <div class="provider-radio"></div>
+        <span class="provider-radio"></span>
         <span class="provider-name">${provider.name}</span>
-        <span class="difficulty-badge ${provider.difficulty}">${t('wizard.difficulty.' + provider.difficulty)}</span>
+        ${chips}
       </div>
       <div class="provider-desc">${provider.desc}</div>
     `;
 
-        // Offline badge
-        if (provider.offline) {
-            html += `<div class="offline-badge">${t('wizard.offlineBadge')}</div>`;
-        }
-
-        // Warning callout
+        // Warning callout (peach — only medium-difficulty warnings remain)
         if (provider.warning) {
-            const warnClass = provider.difficulty === 'hard' ? 'warn-hard' : 'warn-medium';
-            html += `<div class="provider-warning ${warnClass}">${provider.warning}</div>`;
+            html += `<div class="provider-warning">${provider.warning}</div>`;
         }
 
         // Config fields (API key inputs)
@@ -196,7 +156,7 @@ function renderWizardStep(stepIndex) {
           <div class="config-field">
             <label class="config-label">${field.label}</label>
             <input type="${field.key.includes('KEY') || field.key.includes('SECRET') ? 'password' : 'text'}"
-                   class="config-input"
+                   class="field config-input"
                    id="wizard-${stepIndex}-${field.key}"
                    data-key="${field.key}"
                    placeholder="${field.placeholder}"
@@ -228,11 +188,11 @@ function renderWizardStep(stepIndex) {
 function selectProvider(type, providerId, restoring = false) {
     // Deselect all in this type
     const cards = document.querySelectorAll(`.provider-card[data-type="${type}"]`);
-    cards.forEach(c => c.classList.remove('selected'));
+    cards.forEach(c => c.classList.remove('is-selected'));
 
     // Select this card
     const card = document.querySelector(`.provider-card[data-type="${type}"][data-provider-id="${providerId}"]`);
-    if (card) card.classList.add('selected');
+    if (card) card.classList.add('is-selected');
 
     // Update state
     wizardState[type].provider = providerId;
@@ -283,11 +243,8 @@ function validateCurrentStep() {
     const KEY_RULES = {
         'OPENAI_API_KEY': { minLen: 20, prefix: 'sk-', label: t('wizard.val.OPENAI_API_KEY') },
         'DEEPGRAM_API_KEY': { minLen: 20, label: t('wizard.val.DEEPGRAM_API_KEY') },
-        'GROQ_API_KEY': { minLen: 15, prefix: 'gsk_', label: t('wizard.val.GROQ_API_KEY') },
-        'ANTHROPIC_API_KEY': { minLen: 20, prefix: 'sk-ant-', label: t('wizard.val.ANTHROPIC_API_KEY') },
         'ELEVENLABS_API_KEY': { minLen: 15, label: t('wizard.val.ELEVENLABS_API_KEY') },
         'ELEVENLABS_VOICE_ID': { minLen: 10, label: t('wizard.val.ELEVENLABS_VOICE_ID') },
-        'GOOGLE_APPLICATION_CREDENTIALS': { minLen: 5, label: t('wizard.val.GOOGLE_APPLICATION_CREDENTIALS') },
     };
 
     // Validate required fields
@@ -431,10 +388,10 @@ async function finishWizard() {
         const container = document.querySelector('.wizard-container');
         if (container) {
             container.innerHTML = `
-        <div style="text-align: center; padding: 60px 20px;">
-          <div style="font-size: 64px; margin-bottom: 20px; animation: float 2s ease-in-out infinite;">🎉</div>
-          <h2 style="font-size: 24px; font-weight: 700; margin-bottom: 8px;">${t('wizard.done.title')}</h2>
-          <p style="color: var(--text-secondary); font-size: 14px;">${t('wizard.done.subtitle')}</p>
+        <div class="wizard-done">
+          <div class="wizard-done-emoji">🎉</div>
+          <h2 class="wizard-done-title">${t('wizard.done.title')}</h2>
+          <p class="wizard-done-subtitle">${t('wizard.done.subtitle')}</p>
         </div>
       `;
         }
@@ -460,6 +417,14 @@ async function finishWizard() {
 // ═══════════════════════════════════════
 
 function initWizard() {
+    // Nav bindings (inline onclick'ler kaldırıldı — plan kuralı)
+    const prevBtn = document.getElementById('wizard-prev');
+    const nextBtn = document.getElementById('wizard-next');
+    const finishBtn = document.getElementById('wizard-finish');
+    if (prevBtn) prevBtn.addEventListener('click', prevStep);
+    if (nextBtn) nextBtn.addEventListener('click', nextStep);
+    if (finishBtn) finishBtn.addEventListener('click', finishWizard);
+
     renderWizardStep(0);
     updateProgress();
     updateNavButtons();
