@@ -223,6 +223,18 @@ async function renderAvatarConfig() {
         skinSelect.innerHTML = config.skins.map(s =>
             `<option value="${s.id}" ${s.id === config.avatar ? 'selected' : ''}>${s.name}</option>`
         ).join('');
+
+        // Bind here — in the REAL app path. (A previous fix put this only in
+        // initSettingsMock, which runs solely in browser preview, so the
+        // dropdown silently did nothing inside pywebview.)
+        skinSelect.onchange = async () => {
+            try {
+                // Persists to settings.json AND live-applies on the overlay
+                await pywebview.api.set_avatar(skinSelect.value);
+            } catch (e) {
+                console.warn('Failed to save avatar skin:', e);
+            }
+        };
     } catch (e) {
         console.warn('Avatar config load failed:', e);
     }
