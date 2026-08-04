@@ -28,10 +28,27 @@ def _get_vad():
     return _vad
 
 class Orchestrator:
-    def __init__(self):
+    def __init__(self, hooks=None):
         self.running = False
         self.is_active = False # Start in Standby
         self._interrupted = False  # Track if current turn was interrupted
+        # Optional UI hooks object (e.g. assistant.ui.voice_service).
+        # May define: on_wake(), on_listen(), on_think(), on_mood(mood),
+        # on_speak(), on_standby(). All calls are fire-and-forget — a broken
+        # or missing hook must never break the voice flow.
+        self.hooks = hooks
+
+    def _fire_hook(self, name, *args):
+        """Call an optional UI hook without ever raising into the voice loop."""
+        hooks = self.hooks
+        if hooks is None:
+            return
+        try:
+            fn = getattr(hooks, name, None)
+            if fn:
+                fn(*args)
+        except Exception as e:
+            logger.debug(f"UI hook '{name}' failed (ignored): {e}")
 
     def parse_response(self, text: str):
         """
@@ -170,6 +187,7 @@ class Orchestrator:
                     if detected:
                         logger.info("Wake Word Detected! Switching to Active Mode.")
                         self.is_active = True
+                        self._fire_hook("on_wake")
                         self.bring_vts_to_front()
                         self.play_startup_sound()
                     else:
@@ -200,18 +218,21 @@ class Orchestrator:
 
     async def _run_active_turn(self):
         # 1. Listen (Deepgram)
+        self._fire_hook("on_listen")
         user_text = await stt.listen()
-        
+
         if not user_text:
             return
-        
+
         # 2. Think & Act (Streaming)
         logger.info("Thinking...")
-        
+        self._fire_hook("on_think")
+
         # Reset state for new turn
         full_response_buffer = ""
         sentence_buffer = ""
         mood_detected = False
+        speak_started = False
         pending_tool_calls = []
         
         # Start streaming
@@ -230,9 +251,10 @@ class Orchestrator:
                     if mood_match:
                         mood = mood_match.group(1).lower()
                         logger.info(f"Detected Mood: {mood}")
+                        self._fire_hook("on_mood", mood)
                         await vts.trigger_mood(mood)
                         mood_detected = True
-                        
+
                         # Remove mood tag from sentence buffer so we don't speak it
                         sentence_buffer = sentence_buffer.replace(mood_match.group(0), "", 1)
 
@@ -240,12 +262,15 @@ class Orchestrator:
                 if re.search(r"[.!?]\s", sentence_buffer):
                     parts = re.split(r"([.!?]\s)", sentence_buffer, 1)
                     if len(parts) >= 2:
-                        sentence = parts[0] + parts[1] 
-                        remainder = "".join(parts[2:]) 
-                        
+                        sentence = parts[0] + parts[1]
+                        remainder = "".join(parts[2:])
+
                         # Clean mood tags if any remain
                         clean_sentence = re.sub(r"\[[a-zA-Z_]+\]", "", sentence).strip()
                         if clean_sentence:
+                            if not speak_started:
+                                speak_started = True
+                                self._fire_hook("on_speak")
                             tts.speak_async(clean_sentence)
                         sentence_buffer = remainder
 
@@ -265,6 +290,9 @@ class Orchestrator:
         if remaining_text:
             clean_remaining = re.sub(r"\[[a-zA-Z_]+\]", "", remaining_text).strip()
             if clean_remaining:
+                if not speak_started:
+                    speak_started = True
+                    self._fire_hook("on_speak")
                 tts.speak_async(clean_remaining)
 
         # 3. Monitor for interruption while TTS is playing
@@ -304,10 +332,11 @@ class Orchestrator:
 
             if func_name == "stop_listening":
                 logger.info("LLM requested stop_listening. Switching to Standby.")
-                tts.wait_for_idle() 
+                tts.wait_for_idle()
                 self.play_goodbye_sound()
                 self.hide_vts()
                 self.is_active = False
+                self._fire_hook("on_standby")
                 continue
 
             if func_name == "analyze_screen":
@@ -373,25 +402,28 @@ class Orchestrator:
         This is the core LLM interaction without interruption monitoring.
         """
         logger.info("Thinking...")
-        
+        self._fire_hook("on_think")
+
         full_response_buffer = ""
         sentence_buffer = ""
         mood_detected = False
+        speak_started = False
         pending_tool_calls = []
-        
+
         stream = brain.chat_stream(user_text)
-        
+
         for chunk_type, chunk_data in stream:
             if chunk_type == "CONTENT":
                 token = chunk_data
                 full_response_buffer += token
                 sentence_buffer += token
-                
+
                 if not mood_detected:
                     mood_match = re.search(r"^\s*\[([a-zA-Z_]+)\]", full_response_buffer)
                     if mood_match:
                         mood = mood_match.group(1).lower()
                         logger.info(f"Detected Mood: {mood}")
+                        self._fire_hook("on_mood", mood)
                         await vts.trigger_mood(mood)
                         mood_detected = True
                         sentence_buffer = sentence_buffer.replace(mood_match.group(0), "", 1)
@@ -399,10 +431,13 @@ class Orchestrator:
                 if re.search(r"[.!?]\s", sentence_buffer):
                     parts = re.split(r"([.!?]\s)", sentence_buffer, 1)
                     if len(parts) >= 2:
-                        sentence = parts[0] + parts[1] 
-                        remainder = "".join(parts[2:]) 
+                        sentence = parts[0] + parts[1]
+                        remainder = "".join(parts[2:])
                         clean_sentence = re.sub(r"\[[a-zA-Z_]+\]", "", sentence).strip()
                         if clean_sentence:
+                            if not speak_started:
+                                speak_started = True
+                                self._fire_hook("on_speak")
                             tts.speak_async(clean_sentence)
                         sentence_buffer = remainder
 
@@ -420,6 +455,9 @@ class Orchestrator:
         if remaining_text:
             clean_remaining = re.sub(r"\[[a-zA-Z_]+\]", "", remaining_text).strip()
             if clean_remaining:
+                if not speak_started:
+                    speak_started = True
+                    self._fire_hook("on_speak")
                 tts.speak_async(clean_remaining)
         
         # Wait for TTS (no interruption monitoring here - it's a follow-up response)

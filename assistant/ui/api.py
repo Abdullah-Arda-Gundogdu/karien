@@ -19,6 +19,7 @@ from assistant.core.logging_config import logger
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 CONFIG_DIR = BASE_DIR / "config"
 SETTINGS_PATH = CONFIG_DIR / "settings.json"
+AVATAR_MANIFEST_PATH = BASE_DIR / "ui" / "avatars" / "manifest.json"
 
 
 class UILogHandler(logging.Handler):
@@ -48,21 +49,34 @@ class UILogHandler(logging.Handler):
 class KarienAPI:
     def __init__(self):
         self._window = None
+        self._overlay_window = None  # small always-on-top avatar window
+        self._voice_service = None   # assistant.ui.voice_service.VoiceService
         self._shutdown_event = threading.Event()
-        self._loop = None  # asyncio loop for orchestrator
-        self._orchestrator_thread = None
 
     def set_window(self, window):
         self._window = window
         # Attach log handler now that window is ready
         self._attach_log_handler()
 
+    def set_overlay_window(self, window):
+        """Register the overlay avatar window (called from desktop_app)."""
+        self._overlay_window = window
+
+    def set_voice_service(self, service):
+        """Register the VoiceService so the UI can toggle voice mode."""
+        self._voice_service = service
+
     def _attach_log_handler(self):
         """Hook into Python's logging to mirror all logs to UI console."""
+        root_logger = logging.getLogger()
+        # 'loaded' fires on every page navigation (wizard → main app);
+        # attaching more than once duplicates every UI console line.
+        for existing in root_logger.handlers:
+            if isinstance(existing, UILogHandler):
+                existing._api = self
+                return
         handler = UILogHandler(self)
         handler.setLevel(logging.INFO)
-        # Attach to root logger so it catches everything
-        root_logger = logging.getLogger()
         root_logger.addHandler(handler)
 
     # ─── SETTINGS FILE HELPERS ───
@@ -521,4 +535,149 @@ class KarienAPI:
         """Update the orb face expression."""
         if self._window:
             self._window.evaluate_js(f"setMood('{mood}')")
+
+    # ═══════════════════════════════════════
+    #  OVERLAY AVATAR BRIDGE
+    # ═══════════════════════════════════════
+    # Thread-safe: callable from the voice service thread. Every JS call is
+    # guarded so a missing/closed overlay window can never crash voice flow.
+    # JS globals expected in ui/overlay.html (implemented by the skin layer):
+    #   overlaySlideIn(), overlaySlideOut(), overlaySetState(s), overlaySetMood(m)
+
+    _SAFE_TOKEN = re.compile(r"^[a-z_]+$")
+
+    def _overlay_js(self, code):
+        """Run JS on the overlay window; never raises."""
+        try:
+            if self._overlay_window:
+                self._overlay_window.evaluate_js(code)
+        except Exception as e:
+            logger.debug(f"Overlay JS failed (ignored): {e}")
+
+    def overlay_show(self):
+        """Show the overlay window and trigger the slide-in animation."""
+        try:
+            # A rapid sleep→wake could leave a stale hide-timer that would
+            # hide the freshly shown window — cancel it first.
+            pending = getattr(self, "_overlay_hide_timer", None)
+            if pending:
+                pending.cancel()
+                self._overlay_hide_timer = None
+            if self._overlay_window:
+                self._overlay_window.show()
+                # Give the window a moment to appear before animating
+                threading.Timer(0.05, lambda: self._overlay_js("overlaySlideIn()")).start()
+        except Exception as e:
+            logger.debug(f"overlay_show failed (ignored): {e}")
+
+    def overlay_hide(self):
+        """Slide the overlay out, then hide the window after the transition."""
+        try:
+            self._overlay_js("overlaySlideOut()")
+
+            def _hide():
+                try:
+                    if self._overlay_window:
+                        self._overlay_window.hide()
+                except Exception:
+                    pass
+
+            timer = threading.Timer(0.8, _hide)
+            self._overlay_hide_timer = timer
+            timer.start()
+        except Exception as e:
+            logger.debug(f"overlay_hide failed (ignored): {e}")
+
+    def overlay_state(self, state):
+        """Set the overlay state: hidden / listen / think / speak."""
+        if isinstance(state, str) and self._SAFE_TOKEN.match(state):
+            self._overlay_js(f"overlaySetState('{state}')")
+
+    def overlay_mood(self, mood):
+        """Set the overlay mood (one of the 9 [mood] tags)."""
+        if isinstance(mood, str) and self._SAFE_TOKEN.match(mood):
+            self._overlay_js(f"overlaySetMood('{mood}')")
+
+    # ═══════════════════════════════════════
+    #  AVATAR SKIN
+    # ═══════════════════════════════════════
+    # Skins live in ui/avatars/<id>/skin.css and are listed in
+    # ui/avatars/manifest.json. The chosen skin id is stored in
+    # settings.json under "avatar".
+
+    _SKIN_ID = re.compile(r"^[a-zA-Z0-9_-]+$")
+
+    def _load_avatar_manifest(self):
+        """Load the skin list from ui/avatars/manifest.json."""
+        try:
+            skins = json.loads(AVATAR_MANIFEST_PATH.read_text(encoding="utf-8"))
+            if isinstance(skins, list) and skins:
+                return skins
+        except Exception as e:
+            logger.error(f"Failed to load avatar manifest: {e}")
+        return [{"id": "orb", "name": "Orb", "file": "orb/skin.css"}]
+
+    def get_avatar(self):
+        """Return the chosen avatar skin id plus all available skins."""
+        skins = self._load_avatar_manifest()
+        settings = self._load_settings()
+        avatar = settings.get("avatar", "orb")
+        if avatar not in {s.get("id") for s in skins}:
+            avatar = skins[0].get("id", "orb")
+        return {"avatar": avatar, "skins": skins}
+
+    def set_avatar(self, avatar_id):
+        """Persist the avatar skin and apply it to the overlay immediately."""
+        skins = self._load_avatar_manifest()
+        valid_ids = {s.get("id") for s in skins}
+        if (not isinstance(avatar_id, str)
+                or not self._SKIN_ID.match(avatar_id)
+                or avatar_id not in valid_ids):
+            return {"success": False, "error": f"Unknown avatar skin: {avatar_id}"}
+
+        settings = self._load_settings()
+        settings["avatar"] = avatar_id
+        self._save_settings(settings)
+
+        # Live-apply on the overlay window (guarded — never crashes)
+        self._overlay_js(f"overlaySetSkin('{avatar_id}')")
+        logger.info(f"Avatar skin set to: {avatar_id}")
+        return {"success": True, "avatar": avatar_id}
+
+    # --- JS-callable demo helpers (no microphone needed) ---
+
+    def simulate_wake(self):
+        """Demo: drive the same path as a real wake word (slide-in + listen)."""
+        self.overlay_show()
+        self.overlay_state("listen")
+        return {"success": True}
+
+    def simulate_sleep(self):
+        """Demo: drive the same path as a goodbye (slide-out + hide)."""
+        self.overlay_hide()
+        return {"success": True}
+
+    # ═══════════════════════════════════════
+    #  VOICE SERVICE (wake word pipeline)
+    # ═══════════════════════════════════════
+
+    def get_voice_status(self):
+        """Return whether the voice pipeline is currently enabled."""
+        return {"enabled": bool(self._voice_service and self._voice_service.enabled)}
+
+    def toggle_voice(self):
+        """Start/stop the voice pipeline from the UI (stop is best-effort)."""
+        if not self._voice_service:
+            return {"success": False, "enabled": False,
+                    "error": "Ses servisi bu oturumda mevcut değil."}
+        try:
+            if self._voice_service.enabled:
+                self._voice_service.stop()
+            else:
+                self._voice_service.start()
+            return {"success": True, "enabled": self._voice_service.enabled}
+        except Exception as e:
+            logger.error(f"Ses modu değiştirilemedi: {e}")
+            return {"success": False, "enabled": self._voice_service.enabled,
+                    "error": str(e)}
 

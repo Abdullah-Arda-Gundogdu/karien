@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Karien Overlay</title>
+
+    <!--
+      Overlay avatar window (frameless / transparent / always-on-top).
+      Contract with assistant/ui/api.py (do not rename these globals):
+        overlaySlideIn()      → slide the avatar in from the right
+        overlaySlideOut()     → slide the avatar out to the right
+        overlaySetState(s)    → s ∈ hidden | listen | think | speak (data-state)
+        overlaySetMood(m)     → one of the 9 mood tags (data-mood)
+        overlaySetSkin(id)    → swap the skin stylesheet (ui/avatars/<id>/skin.css)
+
+      All visuals are driven by the data-state / data-mood attributes on
+      #avatar-root; each skin is a self-contained stylesheet reacting to them.
+      The DOM below is the superset of parts a skin may use — skins hide or
+      show parts via CSS (e.g. ears/whiskers are display:none unless the
+      skin enables them).
+    -->
+    <link rel="stylesheet" href="css/overlay.css">
+    <link rel="stylesheet" href="avatars/orb/skin.css" id="skin-link">
+</head>
+
+<body>
+    <div id="avatar-root" data-state="hidden" data-mood="neutral">
+        <div class="avatar">
+            <div class="ear ear-l"></div>
+            <div class="ear ear-r"></div>
+            <div class="body"></div>
+            <div class="face">
+                <div class="brow brow-l"></div>
+                <div class="brow brow-r"></div>
+                <div class="eye eye-l">
+                    <div class="pupil"></div>
+                </div>
+                <div class="eye eye-r">
+                    <div class="pupil"></div>
+                </div>
+                <div class="blush blush-l"></div>
+                <div class="blush blush-r"></div>
+                <div class="whiskers whiskers-l"><span></span><span></span><span></span></div>
+                <div class="whiskers whiskers-r"><span></span><span></span><span></span></div>
+                <div class="mouth"></div>
+            </div>
+        </div>
+        <div class="status-label"></div>
+    </div>
+
+    <script src="js/overlay.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,4 @@
+[
+  { "id": "orb", "name": "Orb", "file": "orb/skin.css" },
+  { "id": "kedi", "name": "Kedi", "file": "kedi/skin.css" }
+]

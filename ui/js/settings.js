@@ -16,6 +16,7 @@ async function initSettings() {
             renderMCPServers(),
             renderAudioConfig(),
             renderVoiceConfig(),
+            renderAvatarConfig(),
             renderAPIKeys()
         ]);
     } catch (e) {
@@ -211,6 +212,31 @@ async function renderVoiceConfig() {
     }
 }
 
+// ───── AVATAR SKIN ─────
+
+async function renderAvatarConfig() {
+    try {
+        const config = await pywebview.api.get_avatar();
+        const skinSelect = document.getElementById('avatar-skin');
+        if (!skinSelect || !config.skins) return;
+
+        skinSelect.innerHTML = config.skins.map(s =>
+            `<option value="${s.id}" ${s.id === config.avatar ? 'selected' : ''}>${s.name}</option>`
+        ).join('');
+
+        skinSelect.addEventListener('change', async () => {
+            try {
+                // Persists to settings.json AND live-applies on the overlay
+                await pywebview.api.set_avatar(skinSelect.value);
+            } catch (e) {
+                console.warn('Failed to save avatar skin:', e);
+            }
+        });
+    } catch (e) {
+        console.warn('Avatar config load failed:', e);
+    }
+}
+
 // ═══════════════════════════════════════
 //  MOCK INIT (browser preview mode)
 // ═══════════════════════════════════════
@@ -276,6 +302,13 @@ function initSettingsMock() {
     if (voiceSelect) {
         voiceSelect.innerHTML = ['tr-TR-Wavenet-A (Female)', 'tr-TR-Wavenet-B (Male)', 'en-US-Neural2-F (Female)']
             .map(v => `<option>${v}</option>`).join('');
+    }
+
+    // Avatar skin
+    const skinSelect = document.getElementById('avatar-skin');
+    if (skinSelect) {
+        skinSelect.innerHTML = [{ id: 'orb', name: 'Orb' }, { id: 'kedi', name: 'Kedi' }]
+            .map(s => `<option value="${s.id}">${s.name}</option>`).join('');
     }
 
     // Bind section collapse

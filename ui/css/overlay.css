@@ -1,0 +1,95 @@
+/* ═══════════════════════════════════════
+   Karien — Overlay Base (skin-agnostic)
+   ═══════════════════════════════════════
+
+   Handles: transparent page, slide-in/out
+   motion, layout and the status label.
+   Everything VISUAL (colors, face, states,
+   moods) belongs to the active skin css in
+   ui/avatars/<id>/skin.css.
+   ═══════════════════════════════════════ */
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+    cursor: default;
+}
+
+/* ───── ROOT (slide motion) ───── */
+#avatar-root {
+    width: 170px;
+    margin: 24px auto 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    /* Off-screen right by default; .visible slides it in with a
+       slight overshoot (design spec). */
+    transform: translateX(240px);
+    transition: transform 0.7s cubic-bezier(.2, .8, .3, 1.1);
+    will-change: transform;
+}
+
+#avatar-root.visible {
+    transform: translateX(0);
+}
+
+/* ───── AVATAR CONTAINER ───── */
+.avatar {
+    position: relative;
+    width: 150px;
+    height: 150px;
+}
+
+/* The round "body" — each skin paints it */
+.body {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+}
+
+/* Face plane — same 120x80 grid as the main-window face (face.css),
+   scaled down to fit the 150px avatar so skins can reuse the
+   existing chibi expression coordinates. */
+.face {
+    position: absolute;
+    width: 120px;
+    height: 80px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.75);
+    z-index: 5;
+    pointer-events: none;
+}
+
+/* Optional skin parts — hidden unless a skin enables them */
+.ear,
+.whiskers {
+    display: none;
+}
+
+/* ───── STATUS LABEL (minimal, cute) ───── */
+.status-label {
+    margin-top: 10px;
+    height: 16px;
+    font: 600 11px/16px -apple-system, "Segoe UI", sans-serif;
+    color: rgba(255, 255, 255, 0.9);
+    letter-spacing: 0.5px;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
+}
+
+#avatar-root[data-state="listen"] .status-label::after {
+    content: "dinliyorum~";
+}
+
+#avatar-root[data-state="think"] .status-label::after {
+    content: "düşünüyorum…";
+}
+
+#avatar-root[data-state="speak"] .status-label::after {
+    content: "♪";
+}

@@ -112,10 +112,35 @@ async function sendCommand(input) {
             } else {
                 addLog('info', 'Available states: idle, listening, thinking, speaking');
             }
+        } else if (cmd === '/wake') {
+            // Demo the overlay avatar without the microphone (slide-in + listen)
+            if (window.pywebview && window.pywebview.api) {
+                try {
+                    await pywebview.api.simulate_wake();
+                    addLog('info', 'Overlay avatar: wake (slide-in + listen)');
+                } catch (e) {
+                    addLog('error', `Wake failed: ${e}`);
+                }
+            } else {
+                addLog('error', 'Backend not available (browser preview mode).');
+            }
+        } else if (cmd === '/sleep') {
+            // Demo the overlay avatar goodbye (slide-out + hide)
+            if (window.pywebview && window.pywebview.api) {
+                try {
+                    await pywebview.api.simulate_sleep();
+                    addLog('info', 'Overlay avatar: sleep (slide-out + hide)');
+                } catch (e) {
+                    addLog('error', `Sleep failed: ${e}`);
+                }
+            } else {
+                addLog('error', 'Backend not available (browser preview mode).');
+            }
         } else if (cmd === '/help') {
-            addLog('info', 'Commands: /mood [name] | /state [name] | /help');
+            addLog('info', 'Commands: /mood [name] | /state [name] | /wake | /sleep | /help');
             addLog('info', 'Moods: neutral, happy, sad, annoyed, embarrassed, proud, curious, excited, sleepy');
             addLog('info', 'States: idle, listening, thinking, speaking');
+            addLog('info', '/wake and /sleep demo the overlay avatar (no mic needed).');
             addLog('info', 'Anything else is sent to the LLM as a chat message.');
         } else {
             addLog('error', 'Unknown command: ' + cmd + '. Type /help for available commands.');
