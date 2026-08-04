@@ -35,8 +35,13 @@ class OllamaProvider(LLMProvider):
     
     def __init__(self, model: str = "llama3", api_key: str = None,
                  base_url: str = "http://localhost:11434", temperature: float = 0.7):
+        # Normalize: users often supply the URL with a trailing /v1 (or /);
+        # we append /v1 ourselves, so strip it to avoid a 404 from /v1/v1.
+        base_url = (base_url or "http://localhost:11434").rstrip("/")
+        if base_url.endswith("/v1"):
+            base_url = base_url[:-3].rstrip("/")
         super().__init__(model, api_key=api_key or "ollama", base_url=base_url, temperature=temperature)
-        
+
         # Ollama's OpenAI-compatible endpoint
         self._openai_base_url = f"{base_url}/v1"
         self._client = None
@@ -147,38 +152,57 @@ class OllamaProvider(LLMProvider):
         if max_tokens:
             kwargs["max_tokens"] = max_tokens
         
+        if stream:
+            # Streaming errors surface during ITERATION, not generator
+            # creation — so the guard generator must drive the stream itself.
+            return self._stream_guard(kwargs, messages, tools)
+
         try:
-            if stream:
-                return self._stream_completion(kwargs)
-            else:
-                return self._sync_completion(kwargs)
+            return self._sync_completion(kwargs)
         except Exception as e:
             error_msg = str(e)
-            
+
             # If tool calling failed, retry without tools (prompt injection fallback)
             if tools and "tool" in error_msg.lower():
                 logger.warning(f"Ollama native tool calling failed, falling back to prompt injection: {e}")
                 self._native_tool_support = False
-                
+
                 # Rebuild without tools kwarg
                 kwargs.pop("tools", None)
                 kwargs.pop("tool_choice", None)
                 kwargs["messages"] = self._inject_tools_into_prompt(messages, tools)
-                
+
                 try:
-                    if stream:
-                        return self._stream_completion(kwargs)
-                    else:
-                        return self._sync_completion(kwargs)
+                    return self._sync_completion(kwargs)
                 except Exception as e2:
                     logger.error(f"Ollama fallback also failed: {e2}")
-            
+
             logger.error(f"Ollama provider error: {e}")
-            if stream:
-                def _error_stream():
-                    yield StreamChunk(chunk_type="content", content="[sad] Yerel model çalışmıyor...")
-                return _error_stream()
             return LLMResponse(content="[sad] Yerel model çalışmıyor...")
+
+    def _stream_guard(self, kwargs: dict, messages: list[dict],
+                      tools: list[dict]) -> Generator[StreamChunk, None, None]:
+        """Drive the streaming completion, handling errors and tool fallback."""
+        try:
+            yield from self._stream_completion(dict(kwargs))
+            return
+        except Exception as e:
+            error_msg = str(e)
+            if tools and "tool" in error_msg.lower():
+                logger.warning(f"Ollama native tool calling failed, prompt-injection fallback: {e}")
+                self._native_tool_support = False
+                kw = dict(kwargs)
+                kw.pop("tools", None)
+                kw.pop("tool_choice", None)
+                kw["messages"] = self._inject_tools_into_prompt(messages, tools)
+                try:
+                    yield from self._stream_completion(kw)
+                    return
+                except Exception as e2:
+                    logger.error(f"Ollama fallback also failed: {e2}")
+            else:
+                logger.error(f"Ollama provider error: {e}")
+        yield StreamChunk(chunk_type="content", content="[sad] Yerel model çalışmıyor...")
     
     def _sync_completion(self, kwargs: dict) -> LLMResponse:
         """Non-streaming completion via Ollama."""

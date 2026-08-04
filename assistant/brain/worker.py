@@ -20,6 +20,46 @@ from assistant.brain.providers.base import LLMProvider, StreamChunk
 from assistant.brain.router import Intent, RouterResult
 
 
+def safe_history_tail(messages: list, n: int) -> list:
+    """
+    Take the last n non-system messages WITHOUT breaking OpenAI's tool
+    message pairing rules. A naive [-n:] slice can start the window on a
+    role:"tool" message (its assistant/tool_calls parent excluded) or keep
+    an assistant tool_calls message whose results fell outside the window —
+    both are rejected by the API with a 400.
+    """
+    non_system = [m for m in messages if m.get("role") != "system"]
+    start = max(0, len(non_system) - n)
+    # Never start the window on a tool result — pull its parent in
+    while start > 0 and non_system[start].get("role") == "tool":
+        start -= 1
+    tail = non_system[start:]
+
+    # Strip tool_calls whose results are not fully inside the window
+    # (e.g. a turn that crashed mid-execution)
+    result_ids = {m.get("tool_call_id") for m in tail if m.get("role") == "tool"}
+    cleaned = []
+    for m in tail:
+        if m.get("role") == "assistant" and m.get("tool_calls"):
+            ids = {tc.get("id") for tc in m["tool_calls"]}
+            if not ids.issubset(result_ids):
+                m = {k: v for k, v in m.items() if k != "tool_calls"}
+                if not m.get("content"):
+                    continue
+        cleaned.append(m)
+
+    # Drop tool results whose parent assistant message got stripped
+    valid_ids = set()
+    final = []
+    for m in cleaned:
+        if m.get("role") == "assistant" and m.get("tool_calls"):
+            valid_ids.update(tc.get("id") for tc in m["tool_calls"])
+        if m.get("role") == "tool" and m.get("tool_call_id") not in valid_ids:
+            continue
+        final.append(m)
+    return final
+
+
 @dataclass
 class WorkerResult:
     """Output from the Worker tier."""
@@ -168,8 +208,7 @@ class Worker:
         messages = [{"role": "system", "content": WORKER_SYSTEM_PROMPT_TOOL}]
         
         # Add recent history for context (last few turns only)
-        recent_history = [m for m in history if m["role"] != "system"][-6:]
-        messages.extend(recent_history)
+        messages.extend(safe_history_tail(history, 6))
         
         # Add current user message
         messages.append({"role": "user", "content": user_text})
@@ -231,8 +270,7 @@ class Worker:
         messages = [{"role": "system", "content": WORKER_SYSTEM_PROMPT_CONVERSATION}]
         
         # Add conversation history (exclude old system messages)
-        recent = [m for m in history if m["role"] != "system"][-10:]
-        messages.extend(recent)
+        messages.extend(safe_history_tail(history, 10))
         
         # Add current message
         messages.append({"role": "user", "content": user_text})

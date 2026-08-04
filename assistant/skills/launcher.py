@@ -39,13 +39,52 @@ class LauncherSkill(Skill):
         
         return False
 
+    # Common Turkish (and generic) names → real application names.
+    # The LLM often passes the name the user SAID, not the bundle name.
+    APP_ALIASES = {
+        "hesap makinesi": "Calculator",
+        "hesap makinesini": "Calculator",
+        "notlar": "Notes",
+        "takvim": "Calendar",
+        "müzik": "Music",
+        "muzik": "Music",
+        "fotoğraflar": "Photos",
+        "fotograflar": "Photos",
+        "ayarlar": "System Settings",
+        "sistem ayarları": "System Settings",
+        "mesajlar": "Messages",
+        "posta": "Mail",
+        "e-posta": "Mail",
+        "tarayıcı": "Safari",
+        "tarayici": "Safari",
+        "terminal": "Terminal",
+    }
+
+    def _candidates(self, app_name: str) -> List[str]:
+        """Names to try, in order: alias, as-given, title-cased."""
+        name = app_name.strip()
+        cands = []
+        alias = self.APP_ALIASES.get(name.lower())
+        if alias:
+            cands.append(alias)
+        cands.append(name)
+        if name.title() not in cands:
+            cands.append(name.title())
+        return cands
+
     def _open_app(self, app_name: str) -> bool:
         """Opens an application by name (cross-platform)."""
         logger.info(f"Launching app: {app_name}")
-        
+
         if platform.system() == "Darwin":  # macOS
-            subprocess.run(["open", "-a", app_name], check=False)
-            return True
+            for candidate in self._candidates(app_name):
+                result = subprocess.run(["open", "-a", candidate],
+                                        check=False, capture_output=True)
+                if result.returncode == 0:
+                    logger.info(f"Opened app: {candidate}")
+                    return True
+            logger.warning(f"Could not find an app named '{app_name}'")
+            return False
         elif platform.system() == "Windows":
             try:
                 os.startfile(app_name)

@@ -144,7 +144,7 @@ class Orchestrator:
         
         # Initialize MCP servers in background (non-blocking)
         from assistant.mcp.manager import mcp_manager
-        mcp_manager.register_google_tools()  # Register Google tools as internal tools
+        mcp_manager.ensure_default_tools()  # Skills + Google as internal tools
         asyncio.create_task(mcp_manager.initialize())
         
         # NOTE: We don't play startup sound at very beginning anymore, 
@@ -290,19 +290,18 @@ class Orchestrator:
 
     async def _execute_tools(self, pending_tool_calls: list):
         """
-        Execute collected tool calls. Routes through MCP manager with fallback to internal tools.
-        
-        Strategy:
-        1. Internal tools (stop_listening, analyze_screen) are handled directly
-        2. Other tools go through MCP manager (which has its own fallback)
+        Act on the orchestration signals collected from the brain's stream.
+
+        NOTE: Data tools (open_app, Google, MCP servers, ...) are executed
+        by the Brain itself inside chat_stream — it needs the results to
+        continue the LLM loop. Executing them here again caused every
+        side-effectful tool (e.g. add_calendar_event) to run TWICE.
+        The orchestrator only handles the two host-level signals:
+        stop_listening (state change) and analyze_screen (vision flow).
         """
-        from assistant.mcp.manager import mcp_manager
-        
         for func_name, args in pending_tool_calls:
-            logger.info(f"Executing tool: {func_name}")
-            
-            # === Internal Tools (Karien-specific, always handled here) ===
-            
+            # === Host-level signals ===
+
             if func_name == "stop_listening":
                 logger.info("LLM requested stop_listening. Switching to Standby.")
                 tts.wait_for_idle() 
@@ -332,35 +331,9 @@ class Orchestrator:
                 else:
                     logger.error("Vision skill not found!")
                 continue
-            
-            # === MCP Tools (with fallback to internal skills) ===
-            
-            if mcp_manager.has_tool(func_name):
-                try:
-                    result = await mcp_manager.execute_tool(func_name, args)
-                    if isinstance(result, dict) and result.get("error"):
-                        logger.warning(f"MCP tool {func_name} returned error: {result.get('message')}")
-                        # Notify user about the error
-                        tts.speak_async(f"Sorry, I couldn't execute {func_name}.")
-                    else:
-                        logger.info(f"MCP tool {func_name} executed successfully")
-                    continue
-                except Exception as e:
-                    logger.error(f"MCP tool execution failed: {e}")
-                    # Fall through to skill execution
-            
-            # === Legacy Skill Fallback ===
-            
-            executed = False
-            for skill in self.skills:
-                if func_name in skill.commands:
-                    skill.execute(func_name, list(args.values()))
-                    executed = True
-                    break
-            
-            if not executed:
-                logger.warning(f"Unknown tool: {func_name}")
-                tts.speak_async(f"I don't know how to do {func_name} yet.")
+
+            # === Data tools: already executed by the Brain — log only ===
+            logger.debug(f"Tool {func_name} was executed by the Brain; no host action.")
 
     async def _monitor_for_interruption(self) -> Optional[bytes]:
         """

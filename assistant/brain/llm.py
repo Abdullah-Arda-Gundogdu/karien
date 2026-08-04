@@ -23,7 +23,7 @@ from assistant.core.config import config
 from assistant.core.logging_config import logger
 from assistant.brain.providers.factory import create_provider, create_tier_providers
 from assistant.brain.router import Router, Intent
-from assistant.brain.worker import Worker
+from assistant.brain.worker import Worker, safe_history_tail
 from assistant.brain.synthesizer import Synthesizer
 
 
@@ -45,7 +45,8 @@ class Brain:
         
         # Shared state
         self.history = []
-        self._classic_client = None
+        self._classic_provider = None
+        self._classic_vision_provider = None
         
         # Load System Prompt
         self.system_prompt = self._load_system_prompt()
@@ -109,17 +110,22 @@ class Brain:
     def _init_classic(self):
         """Initialize classic single-model mode (backward compatible)."""
         logger.info("Initializing Brain in CLASSIC mode")
-        
+
         self.router = None
         self.worker = None
         self.synthesizer = None
-        
-        if config.OPENAI_API_KEY:
-            from openai import OpenAI
-            self._classic_client = OpenAI(api_key=config.OPENAI_API_KEY)
-            logger.info("Classic Brain initialized with OpenAI.")
-        else:
-            logger.warning("No API key found. Brain will be in dummy mode.")
+
+        try:
+            self._classic_provider = create_provider(
+                provider_type=config.LLM_PROVIDER,
+                model=config.LLM_MODEL,
+                api_key=config.OPENAI_API_KEY if config.LLM_PROVIDER == "openai" else None,
+                base_url=config.OLLAMA_BASE_URL if config.LLM_PROVIDER == "ollama" else None,
+            )
+            logger.info(f"Classic Brain initialized with {self._classic_provider}")
+        except Exception as e:
+            self._classic_provider = None
+            logger.error(f"Classic Brain init failed: {e}. Brain will be in dummy mode.")
     
     # ===================== TOOL DISCOVERY =====================
     
@@ -146,6 +152,7 @@ class Brain:
 
         try:
             from assistant.mcp.manager import mcp_manager
+            mcp_manager.ensure_default_tools()
             mcp_tools = mcp_manager.get_all_tools()
             logger.debug(f"Got {len(mcp_tools)} tools from MCP manager")
         except Exception as e:
@@ -171,10 +178,18 @@ class Brain:
             - ("CONTENT", text_chunk)
             - ("TOOL", (tool_name, args_json))
         """
-        if self.mode == "three_tier" and self.router:
-            yield from self._chat_stream_three_tier(user_text)
-        else:
-            yield from self._chat_stream_classic(user_text)
+        try:
+            if self.mode == "three_tier" and self.router:
+                yield from self._chat_stream_three_tier(user_text)
+            else:
+                yield from self._chat_stream_classic(user_text)
+        except Exception as e:
+            logger.error(f"Brain turn failed: {e}", exc_info=True)
+            fallback = "[sad] Beynime bağlanamıyorum şu an... Birazdan tekrar dener misin?"
+            # Never leave the history ending on an unanswered user/tool message
+            if self.history and self.history[-1].get("role") != "assistant":
+                self.history.append({"role": "assistant", "content": fallback})
+            yield ("CONTENT", fallback)
     
     def _chat_stream_three_tier(self, user_text: str):
         """
@@ -204,55 +219,61 @@ class Brain:
             
             # Handle tool calls
             if worker_result.tool_calls:
-                # Format for history
-                formatted_tool_calls = []
-                for tc in worker_result.tool_calls:
-                    tc_id = tc.get("id", f"call_{hash(tc['name'])}")
-                    formatted_tool_calls.append({
-                        "id": tc_id,
-                        "type": "function",
-                        "function": {
-                            "name": tc["name"],
-                            "arguments": tc.get("arguments", "{}"),
-                        }
-                    })
-                
+                # Assign stable, unique ids up front (providers may omit them)
+                for i, tc in enumerate(worker_result.tool_calls):
+                    if not tc.get("id"):
+                        tc["id"] = f"call_{i}"
+
                 self.history.append({
                     "role": "assistant",
                     "content": worker_result.content or None,
-                    "tool_calls": formatted_tool_calls,
+                    "tool_calls": [
+                        {
+                            "id": tc["id"],
+                            "type": "function",
+                            "function": {
+                                "name": tc["name"],
+                                "arguments": tc.get("arguments", "{}"),
+                            },
+                        }
+                        for tc in worker_result.tool_calls
+                    ],
                 })
-                
-                # Yield tool calls
+
+                # Yield tool calls (informational — the host only acts on
+                # orchestration signals like stop_listening/analyze_screen)
                 for tc in worker_result.tool_calls:
-                    args = tc.get("arguments", "{}")
-                    yield ("TOOL", (tc["name"], args))
-                
+                    yield ("TOOL", (tc["name"], tc.get("arguments", "{}")))
+
                 # Execute tools and add results to history
+                signal_only = {"stop_listening", "analyze_screen"}
+                executed_data_tool = False
                 for tc in worker_result.tool_calls:
                     tool_name = tc["name"]
                     try:
                         tool_args = json.loads(tc.get("arguments", "{}")) if isinstance(tc.get("arguments"), str) else tc.get("arguments", {})
                     except json.JSONDecodeError:
                         tool_args = {}
-                    
+
                     tool_output = self._execute_tool_internal(tool_name, tool_args)
-                    
-                    tc_id = tc.get("id", f"call_{hash(tool_name)}")
+                    if tool_name not in signal_only:
+                        executed_data_tool = True
+
                     self.history.append({
                         "role": "tool",
-                        "tool_call_id": tc_id,
+                        "tool_call_id": tc["id"],
                         "name": tool_name,
                         "content": str(tool_output),
                     })
-                
-                # If there's also content, synthesize and yield it
-                if worker_result.content and worker_result.requires_synthesis:
+
+                # Tell the user what happened (previously: silent tool turns)
+                if executed_data_tool:
                     logger.info("── Tier 3: Synthesizer (post-tool) ──")
-                    synthesized = self.synthesizer.synthesize(worker_result.content, user_text)
-                    self.history.append({"role": "assistant", "content": synthesized})
-                    yield ("CONTENT", synthesized)
-                
+                    followup = self._post_tool_response(user_text)
+                    if followup:
+                        self.history.append({"role": "assistant", "content": followup})
+                        yield ("CONTENT", followup)
+
                 self._trim_history()
                 return
             
@@ -285,14 +306,40 @@ class Brain:
         
         self._trim_history()
     
+    def _post_tool_response(self, user_text: str) -> str:
+        """
+        After tools ran, produce a short user-facing confirmation from the
+        results (Worker summarizes, Synthesizer adds Karien's voice).
+        """
+        try:
+            messages = [{
+                "role": "system",
+                "content": (
+                    "You are the task engine of an assistant. The requested tools were just "
+                    "executed; their results are in the conversation. Briefly tell the user what "
+                    "happened (success or failure), in the user's language (typically Turkish). "
+                    "Do NOT add personality or mood tags."
+                ),
+            }]
+            messages.extend(safe_history_tail(self.history, 8))
+            response = self._worker_provider.complete(messages=messages, stream=False, max_tokens=120)
+            raw = (response.content or "").strip()
+            if not raw:
+                return "[neutral] Tamamdır, hallettim."
+            return self.synthesizer.synthesize(raw, user_text)
+        except Exception as e:
+            logger.error(f"Post-tool response failed: {e}")
+            return "[neutral] Tamamdır, istediğini yaptım."
+
     # ===================== CLASSIC CHAT STREAM =====================
-    
+
     def _chat_stream_classic(self, user_text: str):
         """
         Classic single-model pipeline (backward compatible).
-        Handles tool calls with the original multi-turn approach.
+        Uses the provider abstraction (OpenAI/Ollama/...) and handles
+        tool calls with the original multi-turn approach.
         """
-        if not self._classic_client:
+        if not self._classic_provider:
             yield ("CONTENT", "[NEUTRAL] I have no brain (API Key missing). I can't think!")
             return
 
@@ -300,93 +347,73 @@ class Brain:
         tools = self._get_all_tools()
 
         MAX_TOOL_TURNS = 3
-        
+
         for turn in range(MAX_TOOL_TURNS + 1):
             full_response = ""
             tool_calls = []
-            
-            try:
-                stream = None
-                for attempt in range(config.LLM_RETRY_COUNT):
-                    try:
-                        stream = self._classic_client.chat.completions.create(
-                            model=config.LLM_MODEL,
-                            messages=self.history,
-                            tools=tools,
-                            tool_choice="auto",
-                            stream=True
-                        )
-                        break 
-                    except Exception as e:
-                        logger.warning(f"LLM Connection failed (Attempt {attempt+1}/{config.LLM_RETRY_COUNT}): {e}")
-                        if attempt == config.LLM_RETRY_COUNT - 1:
-                            raise e
-                        time.sleep(config.LLM_RETRY_DELAY)
 
-                for chunk in stream:
-                    if chunk.choices[0].delta.content:
-                        content = chunk.choices[0].delta.content
-                        full_response += content
-                        yield ("CONTENT", content)
-                    
-                    if chunk.choices[0].delta.tool_calls:
-                        for tool_call in chunk.choices[0].delta.tool_calls:
-                            if len(tool_calls) <= tool_call.index:
-                                tool_calls.append({"id": "", "name": "", "arguments": ""})
-                            
-                            if tool_call.id:
-                                tool_calls[tool_call.index]["id"] = tool_call.id
-                            if tool_call.function.name:
-                                tool_calls[tool_call.index]["name"] += tool_call.function.name
-                            if tool_call.function.arguments:
-                                tool_calls[tool_call.index]["arguments"] += tool_call.function.arguments
+            stream = self._classic_provider.complete(
+                messages=self.history,
+                tools=tools,
+                stream=True,
+            )
 
-                if not tool_calls:
-                    self.history.append({"role": "assistant", "content": full_response})
-                    break 
+            for chunk in stream:
+                if chunk.chunk_type == "content" and chunk.content:
+                    full_response += chunk.content
+                    yield ("CONTENT", chunk.content)
+                elif chunk.chunk_type == "tool_call":
+                    while len(tool_calls) <= chunk.tool_call_index:
+                        tool_calls.append({"id": "", "name": "", "arguments": ""})
+                    tc = tool_calls[chunk.tool_call_index]
+                    if chunk.tool_call_id:
+                        tc["id"] = chunk.tool_call_id
+                    if chunk.tool_call_name:
+                        tc["name"] += chunk.tool_call_name
+                    if chunk.tool_call_arguments:
+                        tc["arguments"] += chunk.tool_call_arguments
 
-                formatted_tool_calls = []
-                for tc in tool_calls:
-                    formatted_tool_calls.append({
+            if not tool_calls:
+                self.history.append({"role": "assistant", "content": full_response})
+                break
+
+            for i, tc in enumerate(tool_calls):
+                if not tc["id"]:
+                    tc["id"] = f"call_{turn}_{i}"
+
+            self.history.append({
+                "role": "assistant",
+                "content": full_response or None,
+                "tool_calls": [
+                    {
                         "id": tc["id"],
                         "type": "function",
-                        "function": {
-                            "name": tc["name"],
-                            "arguments": tc["arguments"]
-                        }
-                    })
-                
+                        "function": {"name": tc["name"], "arguments": tc["arguments"]},
+                    }
+                    for tc in tool_calls
+                ],
+            })
+
+            for tc in tool_calls:
+                tool_name = tc["name"]
+                try:
+                    tool_args = json.loads(tc["arguments"]) if tc["arguments"] else {}
+                except json.JSONDecodeError:
+                    tool_args = {}
+                    logger.error(f"Failed to parse arguments for {tool_name}")
+
+                logger.info(f"Executing Tool: {tool_name} with args {tool_args}")
+                yield ("TOOL", (tool_name, json.dumps(tool_args)))
+
+                tool_output = self._execute_tool_internal(tool_name, tool_args)
+
                 self.history.append({
-                    "role": "assistant",
-                    "content": full_response or None,
-                    "tool_calls": formatted_tool_calls
+                    "role": "tool",
+                    "tool_call_id": tc["id"],
+                    "name": tool_name,
+                    "content": str(tool_output)
                 })
 
-                for tc in tool_calls:
-                    tool_name = tc["name"]
-                    try:
-                        tool_args = json.loads(tc["arguments"])
-                    except json.JSONDecodeError:
-                        tool_args = {}
-                        logger.error(f"Failed to parse arguments for {tool_name}")
-
-                    logger.info(f"Executing Tool: {tool_name} with args {tool_args}")
-                    yield ("TOOL", (tool_name, json.dumps(tool_args)))
-                    
-                    tool_output = self._execute_tool_internal(tool_name, tool_args)
-                    
-                    self.history.append({
-                        "role": "tool",
-                        "tool_call_id": tc["id"],
-                        "name": tool_name,
-                        "content": str(tool_output)
-                    })
-                    
-            except Exception as e:
-                logger.error(f"LLM Stream Error: {e}")
-                yield ("CONTENT", "[SAD] I can't connect to my brain right now.")
-                break
-        
         self._trim_history()
     
     # ===================== TOOL EXECUTION =====================
@@ -405,12 +432,12 @@ class Brain:
         else:
             try:
                 from assistant.mcp.manager import mcp_manager
+                mcp_manager.ensure_default_tools()
                 if mcp_manager.has_tool(tool_name):
-                    handler = mcp_manager._internal_tools.get(tool_name)
-                    if handler:
-                        return handler(**tool_args)
-                    else:
-                        return "MCP Execution Pending (Async Architecture Required)"
+                    result = mcp_manager.execute_tool_sync(tool_name, tool_args)
+                    if isinstance(result, dict) and result.get("error"):
+                        return f"Tool {tool_name} failed: {result.get('message')}"
+                    return str(result)
                 else:
                     return f"Unknown tool: {tool_name}"
             except Exception as e:
@@ -460,14 +487,21 @@ class Brain:
                     return self.synthesizer.synthesize(raw_description, "Ekranıma bak")
                 return raw_description
             
-            elif self._classic_client:
-                # Classic mode
-                response = self._classic_client.chat.completions.create(
-                    model=config.LLM_VISION_MODEL,
+            elif self._classic_provider:
+                # Classic mode — use a vision-capable provider instance
+                if self._classic_vision_provider is None:
+                    self._classic_vision_provider = create_provider(
+                        provider_type=config.LLM_PROVIDER,
+                        model=config.LLM_VISION_MODEL if config.LLM_PROVIDER == "openai" else config.LLM_MODEL,
+                        api_key=config.OPENAI_API_KEY if config.LLM_PROVIDER == "openai" else None,
+                        base_url=config.OLLAMA_BASE_URL if config.LLM_PROVIDER == "ollama" else None,
+                    )
+                response = self._classic_vision_provider.complete(
                     messages=vision_messages,
+                    stream=False,
                     max_tokens=300,
                 )
-                return response.choices[0].message.content
+                return response.content
             
             else:
                 return "I can't see anything (Brain disconnected)."
@@ -479,9 +513,12 @@ class Brain:
     # ===================== HISTORY MANAGEMENT =====================
     
     def _trim_history(self):
-        """Keep conversation history within size limits."""
+        """Keep conversation history within size limits without splitting
+        assistant tool_calls from their tool-result messages."""
         if len(self.history) > config.HISTORY_MAX_SIZE:
-            self.history = [self.history[0]] + self.history[-config.HISTORY_KEEP_RECENT:]
+            self.history = [self.history[0]] + safe_history_tail(
+                self.history, config.HISTORY_KEEP_RECENT
+            )
     
     # ===================== LEGACY INTERFACE =====================
     

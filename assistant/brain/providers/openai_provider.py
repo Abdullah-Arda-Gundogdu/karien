@@ -95,27 +95,50 @@ class OpenAIProvider(LLMProvider):
         if max_tokens:
             kwargs["max_tokens"] = max_tokens
         
-        # Retry logic
+        if stream:
+            # NOTE: _stream_completion is a generator function — calling it
+            # only CREATES the generator; nothing executes (and no exception
+            # can be caught) until iteration. Retry must therefore live
+            # inside a wrapper generator that drives the iteration itself.
+            return self._stream_with_retry(kwargs, retry_count, retry_delay)
+
+        # Retry logic (non-streaming)
         last_error = None
         for attempt in range(retry_count):
             try:
-                if stream:
-                    return self._stream_completion(kwargs)
-                else:
-                    return self._sync_completion(kwargs)
+                return self._sync_completion(kwargs)
             except Exception as e:
                 last_error = e
                 logger.warning(f"OpenAI attempt {attempt+1}/{retry_count} failed: {e}")
                 if attempt < retry_count - 1:
                     time.sleep(retry_delay)
-        
+
         # All retries exhausted
         logger.error(f"OpenAI provider failed after {retry_count} attempts: {last_error}")
-        if stream:
-            def _error_stream():
-                yield StreamChunk(chunk_type="content", content="[sad] Beynime bağlanamıyorum...")
-            return _error_stream()
         return LLMResponse(content="[sad] Beynime bağlanamıyorum...")
+
+    def _stream_with_retry(self, kwargs: dict, retry_count: int,
+                           retry_delay: float) -> Generator[StreamChunk, None, None]:
+        """Drive the streaming completion with real retry semantics."""
+        last_error = None
+        for attempt in range(retry_count):
+            yielded_any = False
+            try:
+                for chunk in self._stream_completion(dict(kwargs)):
+                    yielded_any = True
+                    yield chunk
+                return
+            except Exception as e:
+                last_error = e
+                logger.warning(f"OpenAI stream attempt {attempt+1}/{retry_count} failed: {e}")
+                if yielded_any:
+                    # Retrying after partial output would duplicate content
+                    break
+                if attempt < retry_count - 1:
+                    time.sleep(retry_delay)
+
+        logger.error(f"OpenAI streaming failed after retries: {last_error}")
+        yield StreamChunk(chunk_type="content", content="[sad] Beynime bağlanamıyorum...")
     
     def _sync_completion(self, kwargs: dict) -> LLMResponse:
         """Non-streaming completion."""

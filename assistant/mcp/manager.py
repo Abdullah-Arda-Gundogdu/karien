@@ -10,6 +10,7 @@ This is the main entry point for MCP functionality, providing:
 
 import asyncio
 import platform
+import threading
 from pathlib import Path
 from typing import Any, Optional, Callable
 from assistant.core.logging_config import logger
@@ -35,7 +36,16 @@ class MCPManager:
         self._clients: dict[str, MCPClientWrapper] = {}
         self._initialized = False
         self._internal_tools: dict[str, Callable] = {}
+        self._internal_tool_defs: list[dict] = []
         self._tool_to_mcp: dict[str, str] = {}  # Maps tool name to MCP ID
+        self._defaults_registered = False
+
+        # All MCP client I/O runs on one dedicated background event loop,
+        # so sync callers (Brain) and foreign loops (orchestrator, UI threads)
+        # can share the same client sessions safely.
+        self._loop: Optional[asyncio.AbstractEventLoop] = None
+        self._loop_thread: Optional[threading.Thread] = None
+        self._loop_lock = threading.Lock()
         
         # Platform detection
         system = platform.system().lower()
@@ -55,6 +65,32 @@ class MCPManager:
             self._registry = MCPRegistry(config.MCP_REGISTRY_PATH)
             self._catalog = MCPCatalog(config.MCP_CATALOG_PATH)
     
+    def _ensure_loop(self) -> asyncio.AbstractEventLoop:
+        """Start (once) and return the dedicated MCP event loop."""
+        with self._loop_lock:
+            if self._loop and self._loop.is_running():
+                return self._loop
+            loop = asyncio.new_event_loop()
+            thread = threading.Thread(target=loop.run_forever, name="mcp-loop", daemon=True)
+            thread.start()
+            self._loop = loop
+            self._loop_thread = thread
+            return loop
+
+    def _submit(self, coro):
+        """Schedule a coroutine onto the MCP loop. Returns a concurrent Future."""
+        return asyncio.run_coroutine_threadsafe(coro, self._ensure_loop())
+
+    async def _dispatch(self, coro):
+        """Await a coroutine on the MCP loop, regardless of the caller's loop."""
+        try:
+            running = asyncio.get_running_loop()
+        except RuntimeError:
+            running = None
+        if running is self._ensure_loop():
+            return await coro
+        return await asyncio.wrap_future(self._submit(coro))
+
     @property
     def platform(self) -> str:
         """Current platform identifier."""
@@ -65,47 +101,137 @@ class MCPManager:
         """Whether MCPs have been initialized."""
         return self._initialized
     
-    def register_internal_tool(self, name: str, handler: Callable) -> None:
+    def register_internal_tool(self, name: str, handler: Callable,
+                               definition: Optional[dict] = None) -> None:
         """
         Register an internal (Python-based) tool as fallback.
-        
+
         Args:
             name: Tool name (should match MCP tool name for fallback)
             handler: Async or sync callable that executes the tool
+            definition: OpenAI-format tool definition to advertise to the LLM
         """
         self._internal_tools[name] = handler
+        if definition:
+            self._internal_tool_defs = [
+                d for d in self._internal_tool_defs
+                if d.get("function", {}).get("name") != name
+            ]
+            self._internal_tool_defs.append(definition)
         logger.debug(f"Registered internal tool: {name}")
-    
+
     def register_google_tools(self) -> None:
         """
         Register Google API tools (Gmail, Calendar) as internal tools.
-        
+
         These are sync functions that work without MCP servers.
         Called during app initialization.
         """
-        from assistant.mcp.google_mcp import list_recent_emails, add_calendar_event
-        
-        self.register_internal_tool("list_recent_emails", list_recent_emails)
-        self.register_internal_tool("add_calendar_event", add_calendar_event)
+        from assistant.mcp.google_mcp import (
+            list_recent_emails, add_calendar_event, get_google_tools_definitions,
+        )
+
+        defs = {d["function"]["name"]: d for d in get_google_tools_definitions()}
+        self.register_internal_tool("list_recent_emails", list_recent_emails,
+                                    defs.get("list_recent_emails"))
+        self.register_internal_tool("add_calendar_event", add_calendar_event,
+                                    defs.get("add_calendar_event"))
         logger.info("Registered Google tools as internal tools")
-    
+
+    def register_skill_tools(self) -> None:
+        """
+        Register the built-in desktop skills (Launcher/System/Shortcuts)
+        as internal tools so the LLM can actually open apps, control volume, etc.
+        """
+        from assistant.skills import LauncherSkill, SystemSkill, ShortcutsSkill
+
+        skills = {s.name: s for s in (LauncherSkill(), SystemSkill(), ShortcutsSkill())}
+
+        def _make_handler(skill, command, param_names):
+            def _handler(**kwargs):
+                params = [str(kwargs[p]) for p in param_names if p in kwargs and kwargs[p] is not None]
+                ok = skill.execute(command, params)
+                target = " ".join(params) if params else ""
+                if ok:
+                    return f"{command} succeeded" + (f" for '{target}'" if target else "")
+                return f"{command} failed" + (f" for '{target}'" if target else "")
+            return _handler
+
+        def _def(name, description, props, required):
+            return {
+                "type": "function",
+                "function": {
+                    "name": name,
+                    "description": description,
+                    "parameters": {"type": "object", "properties": props, "required": required},
+                },
+            }
+
+        specs = [
+            (skills["Launcher"], "open_app",
+             "Open an application on the user's computer by its name (e.g. Spotify, Safari, Discord).",
+             {"app_name": {"type": "string", "description": "Application name"}}, ["app_name"]),
+            (skills["Launcher"], "close_app",
+             "Close/quit a running application by its name.",
+             {"app_name": {"type": "string", "description": "Application name"}}, ["app_name"]),
+            (skills["Launcher"], "open_url",
+             "Open a URL in the default web browser (e.g. a YouTube search or a website).",
+             {"url": {"type": "string", "description": "Full URL to open"}}, ["url"]),
+            (skills["System"], "take_screenshot",
+             "Take a screenshot and save it to the user's Desktop.",
+             {}, []),
+            (skills["System"], "set_volume",
+             "Set the system output volume (0-100).",
+             {"volume": {"type": "integer", "description": "Volume percent 0-100"}}, ["volume"]),
+            (skills["Shortcuts"], "run_shortcut",
+             "Run an Apple Shortcuts shortcut by name (macOS).",
+             {"shortcut_name": {"type": "string", "description": "Shortcut name"}}, ["shortcut_name"]),
+        ]
+
+        for skill, cmd, desc, props, required in specs:
+            self.register_internal_tool(
+                cmd, _make_handler(skill, cmd, list(props.keys())),
+                _def(cmd, desc, props, required),
+            )
+        logger.info("Registered desktop skills as internal tools")
+
+    def ensure_default_tools(self) -> None:
+        """
+        Idempotently register the default internal tools (skills + Google).
+        Safe to call from any entry point before advertising tools to the LLM.
+        """
+        if self._defaults_registered:
+            return
+        self._defaults_registered = True
+        try:
+            self.register_skill_tools()
+        except Exception as e:
+            logger.error(f"Failed to register skill tools: {e}")
+        try:
+            self.register_google_tools()
+        except Exception as e:
+            logger.warning(f"Google tools unavailable: {e}")
+
     def get_internal_tool_definitions(self) -> list[dict]:
         """
-        Get OpenAI-format tool definitions for internal tools.
-        
+        Get OpenAI-format tool definitions for all registered internal tools.
+
         Returns:
             List of tool definitions in OpenAI function calling format
         """
-        from assistant.mcp.google_mcp import get_google_tools_definitions
-        return get_google_tools_definitions()
+        return list(self._internal_tool_defs)
     
     async def initialize(self) -> None:
         """
         Initialize all enabled MCPs.
-        
+
         This should be called at app startup. It runs asynchronously
-        and does not block the main application.
+        and does not block the main application. Client connections are
+        made on the dedicated MCP loop regardless of the caller's loop.
         """
+        await self._dispatch(self._initialize_impl())
+
+    async def _initialize_impl(self) -> None:
         if self._initialized:
             logger.warning("MCPManager already initialized")
             return
@@ -187,19 +313,42 @@ class MCPManager:
     async def execute_tool(self, tool_name: str, arguments: dict) -> Any:
         """
         Execute a tool, with fallback to internal implementation.
-        
+
         Strategy (Option C):
         1. Try MCP tool first
         2. If fails, try internal fallback
         3. If both fail, notify with error message
-        
+
         Args:
             tool_name: Name of the tool to execute
             arguments: Tool arguments
-            
+
         Returns:
             Tool execution result
         """
+        return await self._dispatch(self._execute_tool_impl(tool_name, arguments))
+
+    def execute_tool_sync(self, tool_name: str, arguments: dict,
+                          timeout: Optional[float] = None) -> Any:
+        """
+        Synchronous tool execution for sync callers (the Brain's LLM loop).
+
+        Runs the tool on the dedicated MCP loop and blocks the calling
+        thread until the result arrives or the timeout expires.
+        """
+        if timeout is None:
+            try:
+                from assistant.core.config import config
+                timeout = float(getattr(config, "MCP_TOOL_TIMEOUT", 60.0))
+            except Exception:
+                timeout = 60.0
+        try:
+            return self._submit(self._execute_tool_impl(tool_name, arguments)).result(timeout)
+        except TimeoutError:
+            logger.error(f"Tool {tool_name} timed out after {timeout}s")
+            return {"error": True, "message": f"Tool {tool_name} timed out"}
+
+    async def _execute_tool_impl(self, tool_name: str, arguments: dict) -> Any:
         error_message = None
         
         # 1. Try MCP tool
@@ -262,13 +411,16 @@ class MCPManager:
     async def install_from_catalog(self, mcp_id: str) -> bool:
         """
         Install an MCP from the catalog.
-        
+
         Args:
             mcp_id: ID of the MCP in the catalog
-            
+
         Returns:
             True if installation successful
         """
+        return await self._dispatch(self._install_impl(mcp_id))
+
+    async def _install_impl(self, mcp_id: str) -> bool:
         self._ensure_loaded()
         
         catalog_entry = self._catalog.get(mcp_id)
@@ -312,8 +464,11 @@ class MCPManager:
     
     async def uninstall(self, mcp_id: str) -> bool:
         """Uninstall an MCP."""
+        return await self._dispatch(self._uninstall_impl(mcp_id))
+
+    async def _uninstall_impl(self, mcp_id: str) -> bool:
         self._ensure_loaded()
-        
+
         # Disconnect if connected
         if mcp_id in self._clients:
             await self._clients[mcp_id].disconnect()
@@ -324,33 +479,44 @@ class MCPManager:
     
     async def enable(self, mcp_id: str) -> bool:
         """Enable an MCP and connect to it."""
+        return await self._dispatch(self._enable_impl(mcp_id))
+
+    async def _enable_impl(self, mcp_id: str) -> bool:
         self._ensure_loaded()
-        
+
         if not self._registry.enable(mcp_id):
             return False
-        
+
         entry = self._registry.get(mcp_id)
         if entry and self._initialized:
-            client = MCPClientWrapper(entry.id, entry.command, entry.config.get("env"))
+            env_keys = entry.config.get("env_keys", [])
+            client = MCPClientWrapper(entry.id, entry.command,
+                                      entry.config.get("env"), env_keys)
             self._clients[entry.id] = client
             if await client.connect():
                 self._build_tool_mapping()
-        
+
         return True
-    
+
     async def disable(self, mcp_id: str) -> bool:
         """Disable an MCP and disconnect from it."""
+        return await self._dispatch(self._disable_impl(mcp_id))
+
+    async def _disable_impl(self, mcp_id: str) -> bool:
         self._ensure_loaded()
-        
+
         if mcp_id in self._clients:
             await self._clients[mcp_id].disconnect()
             del self._clients[mcp_id]
             self._build_tool_mapping()
-        
+
         return self._registry.disable(mcp_id)
-    
+
     async def shutdown(self) -> None:
         """Disconnect from all MCP servers."""
+        await self._dispatch(self._shutdown_impl())
+
+    async def _shutdown_impl(self) -> None:
         logger.info("Shutting down MCP Manager...")
         
         disconnect_tasks = [

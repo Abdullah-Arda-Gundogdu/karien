@@ -13,9 +13,33 @@ Design rationale:
 - Ensures consistent character voice regardless of Worker model used
 """
 
+import re
 from typing import Generator
 from assistant.core.logging_config import logger
 from assistant.brain.providers.base import LLMProvider, StreamChunk
+
+# The 9 moods the orb face and VTube Studio hotkeys understand
+VALID_MOODS = {
+    "neutral", "happy", "sad", "annoyed", "embarrassed",
+    "proud", "curious", "excited", "sleepy",
+}
+
+
+def normalize_mood_tag(text: str) -> str:
+    """
+    Ensure the response starts with a VALID mood tag. Small local models
+    sometimes invent tags like [Empati] which the UI cannot render.
+    """
+    if not text:
+        return "[neutral]"
+    match = re.match(r"^\s*\[([^\]]+)\]\s*", text)
+    if not match:
+        return "[neutral] " + text.strip()
+    mood = match.group(1).strip().lower()
+    rest = text[match.end():].strip()
+    if mood not in VALID_MOODS:
+        mood = "neutral"
+    return f"[{mood}] {rest}" if rest else f"[{mood}]"
 
 
 # Synthesizer system prompt — personality formatting only
@@ -77,7 +101,7 @@ class Synthesizer:
         # If content already has a mood tag, skip synthesis
         if raw_content.strip().startswith("[") and "]" in raw_content[:20]:
             logger.debug("Content already has mood tag, skipping synthesis")
-            return raw_content
+            return normalize_mood_tag(raw_content)
         
         messages = [
             {"role": "system", "content": SYNTHESIZER_SYSTEM_PROMPT},
@@ -91,12 +115,8 @@ class Synthesizer:
                 max_tokens=150,  # Synthesized output should be short
             )
             
-            result = response.content.strip()
-            
-            # Validate that mood tag exists
-            if not result.startswith("["):
-                result = "[neutral] " + result
-            
+            result = normalize_mood_tag(response.content.strip())
+
             logger.debug(f"Synthesized: '{raw_content[:50]}...' → '{result[:50]}...'")
             return result
             

@@ -142,6 +142,9 @@ const PROVIDERS = {
 //  RENDERING
 // ═══════════════════════════════════════
 
+// Keys pre-loaded from the existing .env (filled in initWizard)
+let existingKeys = {};
+
 function renderWizardStep(stepIndex) {
     const types = ['stt', 'llm', 'tts'];
     const type = types[stepIndex];
@@ -184,20 +187,23 @@ function renderWizardStep(stepIndex) {
         if (provider.fields.length > 0) {
             html += `<div class="provider-config">`;
             provider.fields.forEach(field => {
-                const defaultVal = field.defaultValue || '';
+                // NOTE: ids are step-scoped — the same key (e.g. OPENAI_API_KEY)
+                // can appear in several steps, and duplicate ids made
+                // getElementById always hit the hidden step-0 input.
+                const defaultVal = field.defaultValue || existingKeys[field.key] || '';
                 html += `
           <div class="config-field">
             <label class="config-label">${field.label}</label>
-            <input type="${field.key.includes('KEY') || field.key.includes('SECRET') ? 'password' : 'text'}" 
-                   class="config-input" 
-                   id="wizard-${field.key}"
+            <input type="${field.key.includes('KEY') || field.key.includes('SECRET') ? 'password' : 'text'}"
+                   class="config-input"
+                   id="wizard-${stepIndex}-${field.key}"
                    data-key="${field.key}"
                    placeholder="${field.placeholder}"
                    value="${defaultVal}"
                    autocomplete="off"
                    spellcheck="false" />
             <span class="config-hint">${field.hint}</span>
-            <span class="validation-msg" id="wizard-${field.key}-error">This field is required</span>
+            <span class="validation-msg" id="wizard-${stepIndex}-${field.key}-error">This field is required</span>
           </div>
         `;
             });
@@ -232,9 +238,10 @@ function selectProvider(type, providerId, restoring = false) {
 
     // Restore values if coming back
     if (restoring) {
+        const stepIdx = ['stt', 'llm', 'tts'].indexOf(type);
         const config = wizardState[type].config;
         Object.keys(config).forEach(key => {
-            const input = document.getElementById(`wizard-${key}`);
+            const input = document.getElementById(`wizard-${stepIdx}-${key}`);
             if (input && config[key]) input.value = config[key];
         });
     }
@@ -287,8 +294,8 @@ function validateCurrentStep() {
     provider.fields.forEach(field => {
         if (field.defaultValue) return; // Optional fields with defaults are fine
 
-        const input = document.getElementById(`wizard-${field.key}`);
-        const errorEl = document.getElementById(`wizard-${field.key}-error`);
+        const input = document.getElementById(`wizard-${currentStep}-${field.key}`);
+        const errorEl = document.getElementById(`wizard-${currentStep}-${field.key}-error`);
         const val = input ? input.value.trim() : '';
         const rule = KEY_RULES[field.key];
 
@@ -462,10 +469,10 @@ function initWizard() {
             try {
                 const existing = await pywebview.api.get_existing_keys();
                 if (existing) {
-                    Object.keys(existing).forEach(key => {
-                        const input = document.getElementById(`wizard-${key}`);
-                        if (input && existing[key]) input.value = existing[key];
-                    });
+                    // Stash for ALL steps (they render lazily on navigation),
+                    // then re-render the current step so it picks them up.
+                    existingKeys = existing;
+                    renderWizardStep(currentStep);
                 }
             } catch (e) {
                 console.warn('Could not load existing keys:', e);
