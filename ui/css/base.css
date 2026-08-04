@@ -1,0 +1,66 @@
+/* ═══════════════════════════════════════════════════════════
+   Karien — Base
+   Reset + sayfa iskeleti + ortak keyframe'ler + temalı scrollbar.
+   Sayfa stilleri body.app-page'e SCOPE'ludur: overlay penceresi
+   bu sınıfı ASLA almaz (şeffaflık sözleşmesi — body'ye zemin yok).
+   ═══════════════════════════════════════════════════════════ */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body.app-page {
+  font-family: var(--font-main);
+  background: var(--ground-0);
+  color: var(--text-1);
+  height: 100vh;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* ───── Ortak keyframe'ler (avatar.css'ten taşındı —
+        konsol/sidebar'ın gizli bağımlılığı burada çözülür) ───── */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse-dot {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.3;
+  }
+}
+
+/* ───── Temalı scrollbar ───── */
+.app-page ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.app-page ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.app-page ::-webkit-scrollbar-thumb {
+  background: var(--ground-4);
+  border-radius: var(--r-pill);
+}
+
+.app-page ::-webkit-scrollbar-thumb:hover {
+  background: var(--line);
+}

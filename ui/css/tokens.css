@@ -1,0 +1,131 @@
+/* ═══════════════════════════════════════════════════════════
+   Karien — Design Tokens
+   Kawaii-ama-rafine koyu tema: sıcak erik-antrasit zeminler,
+   sakura/lavanta pastel vurgular. variables.css'in yerine geçer.
+   Yüklenme sırası: tokens.css → base.css → ekran css'leri.
+   ═══════════════════════════════════════════════════════════ */
+
+/* ───── Yazı tipi: Nunito (variable, yerel — ağ bağımlılığı yok) ───── */
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 200 1000;
+  font-display: swap;
+  src: url('../fonts/Nunito-Variable-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 200 1000;
+  font-display: swap;
+  src: url('../fonts/Nunito-Variable-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root {
+  /* ───── Zeminler — sıcak erik-antrasit (#171420 → #342c4a) ───── */
+  --ground-0: #171420;   /* en derin: uygulama zemini            */
+  --ground-1: #1d1929;   /* ray / kenar çubuğu                   */
+  --ground-2: #231e33;   /* kart                                 */
+  --ground-3: #2a2440;   /* input / kuyu                         */
+  --ground-4: #342c4a;   /* hover / en açık zemin                */
+
+  /* ───── Vurgular — pastel ───── */
+  --sakura:       #ffa7c4;                      /* birincil     */
+  --sakura-soft:  rgba(255, 167, 196, 0.16);
+  --sakura-glow:  rgba(255, 167, 196, 0.45);
+  --lavanta:      #b9a8ff;                      /* ikincil      */
+  --lavanta-soft: rgba(185, 168, 255, 0.16);
+  --lavanta-glow: rgba(185, 168, 255, 0.45);
+
+  /* ───── Durum renkleri — pastel ───── */
+  --mint:       #9fe8c8;                        /* başarı / çevrimiçi   */
+  --mint-soft:  rgba(159, 232, 200, 0.16);
+  --peach:      #ffd8a8;                        /* uyarı / "restart"    */
+  --peach-soft: rgba(255, 216, 168, 0.16);
+  --coral:      #ff9b9b;                        /* hata / tehlike       */
+  --coral-soft: rgba(255, 155, 155, 0.16);
+
+  /* ───── Metin & çizgi ───── */
+  --text-1: #f3eef8;     /* birincil metin — sıcak beyaz         */
+  --text-2: #a99fc2;     /* ikincil metin                        */
+  --text-3: #6f6591;     /* sönük metin / ipucu                  */
+  --line:   #3a3255;     /* kenarlık                             */
+
+  /* ───── Boşluk skalası (4px taban) ───── */
+  --sp-1:  4px;
+  --sp-2:  8px;
+  --sp-3:  12px;
+  --sp-4:  16px;
+  --sp-5:  20px;
+  --sp-6:  24px;
+  --sp-8:  32px;
+  --sp-10: 40px;
+  --sp-12: 48px;
+
+  /* ───── Yarıçap skalası (6–28px + hap) ───── */
+  --r-xs:   6px;
+  --r-sm:   8px;
+  --r-md:   12px;
+  --r-lg:   16px;
+  --r-xl:   22px;
+  --r-2xl:  28px;
+  --r-pill: 999px;
+
+  /* ───── Tip skalası ───── */
+  --fs-xs:  11px;
+  --fs-sm:  12.5px;
+  --fs-md:  14px;
+  --fs-lg:  16px;
+  --fs-xl:  20px;
+  --fs-2xl: 26px;
+  --fw-regular: 500;   /* Nunito ince kaçar; 500 taban           */
+  --fw-medium:  600;
+  --fw-bold:    700;
+  --fw-heavy:   800;
+
+  /* ───── Gölge & parıltı — yumuşak ───── */
+  --shadow-sm: 0 2px 8px rgba(10, 6, 18, 0.35);
+  --shadow-md: 0 6px 20px rgba(10, 6, 18, 0.45);
+  --shadow-lg: 0 12px 40px rgba(10, 6, 18, 0.55);
+  --glow-sakura:  0 0 24px var(--sakura-glow);
+  --glow-lavanta: 0 0 24px var(--lavanta-glow);
+
+  /* ───── Hareket ───── */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);   /* mevcut overshoot eğrisi */
+  --ease-out:    cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-fast: 150ms;
+  --dur-med:  300ms;
+  --dur-slow: 500ms;
+
+  /* ───── Yazı yığınları ───── */
+  --font-main: 'Nunito', ui-rounded, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  /* ═════════════════════════════════════════════════════════
+     LEGACY ALIASES — eski variables.css adları → yeni token'lar.
+     Geçiş süresince her ekran açılır kalır; son temizlik
+     commit'inde (plan faz 10) bu blok silinir.
+     ═════════════════════════════════════════════════════════ */
+  --bg-deep:       var(--ground-0);
+  --bg-sidebar:    var(--ground-1);
+  --bg-card:       var(--ground-2);
+  --bg-input:      var(--ground-3);
+  --bg-hover:      var(--ground-4);
+  --accent:        var(--sakura);
+  --accent-dim:    var(--sakura-soft);
+  --accent-glow:   var(--sakura-glow);
+  --accent-purple: var(--lavanta);
+  --accent-pink:   var(--sakura);
+  --accent-green:  var(--mint);
+  --accent-orange: var(--peach);
+  --accent-red:    var(--coral);
+  --text-primary:  var(--text-1);
+  --text-secondary: var(--text-2);
+  --text-dim:      var(--text-3);
+  --border:        var(--line);
+  --radius:        var(--r-md);
+  --radius-sm:     var(--r-sm);
+}
