@@ -19,7 +19,8 @@ document.addEventListener('DOMContentLoaded', () => {
     initAvatar();
     initConsole();
 
-    // Wait for pywebview API bridge, then load dynamic data
+    // Wait for pywebview API bridge (shared helper in util.js),
+    // then load dynamic data
     if (window.pywebview) {
         waitForApi().then(() => {
             initSettings();
@@ -30,26 +31,6 @@ document.addEventListener('DOMContentLoaded', () => {
         initSettingsMock();
     }
 });
-
-/**
- * Wait for pywebview.api to become available.
- * pywebview injects the `api` object asynchronously.
- */
-function waitForApi() {
-    return new Promise((resolve) => {
-        if (window.pywebview && window.pywebview.api) {
-            resolve();
-            return;
-        }
-        // Poll every 100ms
-        const interval = setInterval(() => {
-            if (window.pywebview && window.pywebview.api) {
-                clearInterval(interval);
-                resolve();
-            }
-        }, 100);
-    });
-}
 
 /**
  * Load app-wide status (version, online state, MCP count).

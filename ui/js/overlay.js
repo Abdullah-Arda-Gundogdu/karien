@@ -58,21 +58,7 @@
     };
 
     // ───── Boot: load the configured skin from the backend ─────
-
-    function waitForApi() {
-        return new Promise((resolve) => {
-            if (window.pywebview && window.pywebview.api) {
-                resolve();
-                return;
-            }
-            const interval = setInterval(() => {
-                if (window.pywebview && window.pywebview.api) {
-                    clearInterval(interval);
-                    resolve();
-                }
-            }, 100);
-        });
-    }
+    // (waitForApi is the shared helper from util.js)
 
     document.addEventListener('DOMContentLoaded', () => {
         // In a plain browser (preview mode) keep the default 'orb' skin.

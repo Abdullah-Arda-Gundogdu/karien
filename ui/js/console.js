@@ -1,20 +1,18 @@
 /**
  * Karien — Console Module
- * 
- * Manages console log display, auto-scroll, and command sending.
+ *
+ * Manages console log display (append-only, DOM-capped), auto-scroll,
+ * and command sending.
  */
 
-let _logs = [];
+// Hard cap on rendered log entries: oldest DOM nodes are dropped beyond this.
+const MAX_LOG_ENTRIES = 500;
 
 /**
- * Initialize console: render placeholder logs and bind events.
+ * Initialize console: render the boot log line and bind events.
  */
 function initConsole() {
-    // Start with some placeholder logs
-    _logs = [
-        { time: now(), type: 'info', msg: 'System initialized. Waiting for backend...' },
-    ];
-    renderLogs();
+    addLog('info', 'System initialized. Waiting for backend...');
 
     // Bind send button
     const sendBtn = document.querySelector('.send-btn');
@@ -29,56 +27,50 @@ function initConsole() {
 
 /**
  * Add a log entry (called from Python via evaluate_js).
+ * Appends exactly one DOM node; never re-renders the whole list.
  * @param {string} level - 'info' | 'user' | 'llm' | 'tool' | 'tts' | 'error' | 'mcp'
  * @param {string} message - The log message
  */
 function addLog(level, message) {
-    _logs.push({ time: now(), type: level, msg: message });
-    renderLogs();
+    const area = document.getElementById('logArea');
+    if (!area) return;
+
+    const entry = document.createElement('div');
+    entry.className = 'log-entry';
+
+    const time = document.createElement('span');
+    time.className = 'log-time';
+    time.textContent = now();
+
+    const badge = document.createElement('span');
+    badge.className = 'log-badge ' + level;
+    badge.textContent = String(level).toUpperCase();
+
+    const msg = document.createElement('span');
+    msg.className = 'log-msg';
+    msg.textContent = message;
+
+    entry.appendChild(time);
+    entry.appendChild(badge);
+    entry.appendChild(msg);
+    area.appendChild(entry);
+
+    // Cap the DOM: drop oldest entries beyond the limit
+    while (area.childElementCount > MAX_LOG_ENTRIES) {
+        area.removeChild(area.firstChild);
+    }
 
     // Auto-scroll if enabled
     const toggle = document.querySelector('.toggle-track');
     if (toggle && toggle.classList.contains('on')) {
-        const area = document.getElementById('logArea');
-        if (area) area.scrollTop = area.scrollHeight;
+        area.scrollTop = area.scrollHeight;
     }
-}
-
-/**
- * Render all logs to the log area.
- */
-function renderLogs() {
-    const area = document.getElementById('logArea');
-    if (!area) return;
-    area.innerHTML = '';
-    _logs.forEach(l => {
-        const entry = document.createElement('div');
-        entry.className = 'log-entry';
-
-        const time = document.createElement('span');
-        time.className = 'log-time';
-        time.textContent = l.time;
-
-        const badge = document.createElement('span');
-        badge.className = 'log-badge ' + l.type;
-        badge.textContent = l.type.toUpperCase();
-
-        const msg = document.createElement('span');
-        msg.className = 'log-msg';
-        msg.textContent = l.msg;
-
-        entry.appendChild(time);
-        entry.appendChild(badge);
-        entry.appendChild(msg);
-        area.appendChild(entry);
-    });
 }
 
 /**
  * Clear all logs.
  */
 function clearLogs() {
-    _logs = [];
     const area = document.getElementById('logArea');
     if (area) area.innerHTML = '';
 }
@@ -165,10 +157,4 @@ async function sendCommand(input) {
 function now() {
     const d = new Date();
     return d.toLocaleTimeString('en-GB', { hour12: false });
-}
-
-function escapeHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
 }

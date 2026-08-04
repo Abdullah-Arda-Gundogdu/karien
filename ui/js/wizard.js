@@ -463,9 +463,9 @@ function initWizard() {
     updateProgress();
     updateNavButtons();
 
-    // Try to pre-fill from existing .env
+    // Try to pre-fill from existing .env (waitForApi from util.js)
     if (window.pywebview && window.pywebview.api) {
-        waitForWizardApi().then(async () => {
+        waitForApi().then(async () => {
             try {
                 const existing = await pywebview.api.get_existing_keys();
                 if (existing) {
@@ -479,21 +479,6 @@ function initWizard() {
             }
         });
     }
-}
-
-function waitForWizardApi() {
-    return new Promise((resolve) => {
-        if (window.pywebview && window.pywebview.api) {
-            resolve();
-            return;
-        }
-        const interval = setInterval(() => {
-            if (window.pywebview && window.pywebview.api) {
-                clearInterval(interval);
-                resolve();
-            }
-        }, 100);
-    });
 }
 
 // Boot
