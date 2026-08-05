@@ -84,14 +84,29 @@ class Orchestrator:
         tts.play_sound("goodbye")
 
     def bring_vts_to_front(self):
-        """Brings VTube Studio window to front (Cross-Platform)."""
+        """Brings VTube Studio window to front (Cross-Platform).
+
+        Only acts when the VTS plugin API is actually connected. The old
+        'tell application ... to activate' form LAUNCHED VTube Studio (via
+        Steam!) when it wasn't running and blocked the event loop for the
+        entire cold start (~30s of silence after the wake word).
+        """
+        if not vts.connected:
+            logger.debug("VTS not connected; skipping bring-to-front")
+            return
+
         import sys
         import subprocess
-        
+
         try:
             if sys.platform == "darwin":
-                # macOS (AppleScript)
-                subprocess.run(["osascript", "-e", 'tell application "VTube Studio" to activate'], check=True)
+                # System Events targets a RUNNING process — it can never
+                # launch the app (second safety net against a stale
+                # vts.connected flag). frontmost also un-hides it.
+                cmd = ('tell application "System Events" to '
+                       'set frontmost of process "VTube Studio" to true')
+                subprocess.run(["osascript", "-e", cmd],
+                               check=True, timeout=3, capture_output=True)
                 logger.info("VTube Studio brought to front (macOS).")
                 
             elif sys.platform == "win32":
@@ -118,14 +133,19 @@ class Orchestrator:
 
     def hide_vts(self):
         """Hides/Minimizes VTube Studio window (Cross-Platform)."""
+        if not vts.connected:
+            logger.debug("VTS not connected; skipping hide")
+            return
+
         import sys
         import subprocess
-        
+
         try:
             if sys.platform == "darwin":
                 # macOS (AppleScript)
                 cmd = 'tell application "System Events" to set visible of process "VTube Studio" to false'
-                subprocess.run(["osascript", "-e", cmd], check=True)
+                subprocess.run(["osascript", "-e", cmd],
+                               check=True, timeout=3, capture_output=True)
                 logger.info("VTube Studio hidden (macOS).")
                 
             elif sys.platform == "win32":
@@ -186,8 +206,9 @@ class Orchestrator:
         # Assume silent start, waiting for wake word.
         logger.info("Karien started. (Standby)")
         
-        # Ensure VTS is hidden at startup
-        self.hide_vts()
+        # Ensure VTS is hidden at startup (off the loop thread — osascript
+        # can block for seconds)
+        await asyncio.to_thread(self.hide_vts)
 
         while self.running:
             try:
@@ -203,8 +224,10 @@ class Orchestrator:
                         logger.info("Wake Word Detected! Switching to Active Mode.")
                         self.is_active = True
                         self._fire_hook("on_wake")
-                        self.bring_vts_to_front()
+                        # Chime FIRST (user feedback must be instant); VTS
+                        # window juggling happens off the loop thread after.
                         self.play_startup_sound()
+                        await asyncio.to_thread(self.bring_vts_to_front)
                     else:
                         # If listen returned False (e.g. error/timeout/interrupt), check if running
                         if not self.running: break
@@ -349,7 +372,7 @@ class Orchestrator:
                 logger.info("LLM requested stop_listening. Switching to Standby.")
                 tts.wait_for_idle()
                 self.play_goodbye_sound()
-                self.hide_vts()
+                await asyncio.to_thread(self.hide_vts)
                 self.is_active = False
                 self._fire_hook("on_standby")
                 continue
