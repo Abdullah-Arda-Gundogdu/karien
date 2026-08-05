@@ -85,10 +85,11 @@
     // (waitForApi is the shared helper from util.js)
 
     document.addEventListener('DOMContentLoaded', () => {
-        // In a plain browser (preview mode) keep the default 'orb' skin.
-        if (!window.pywebview) return;
-
-        waitForApi().then(async () => {
+        // Timeout-based wait: the bridge injects after load, so an instant
+        // window.pywebview check would skip skin loading in the real app.
+        // In a plain browser (timeout) the default 'orb' skin stays.
+        waitForApi(5000).then(async (ready) => {
+            if (!ready) return;
             try {
                 const config = await pywebview.api.get_avatar();
                 if (config && config.avatar) {

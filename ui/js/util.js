@@ -7,21 +7,34 @@
 
 /**
  * Wait for pywebview.api to become available.
- * pywebview injects the `api` object asynchronously after page load.
- * @returns {Promise<void>} resolves once window.pywebview.api exists
+ *
+ * pywebview injects `window.pywebview` asynchronously AFTER page load, so
+ * checking its presence at DOMContentLoaded is a race — the real app can
+ * wrongly look like browser-preview mode. Always await this instead.
+ *
+ * @param {number} [timeoutMs] - optional; resolve false if the bridge never
+ *   appears within this window (browser preview mode). Omit to wait forever.
+ * @returns {Promise<boolean>} true = bridge ready, false = timed out
  */
-function waitForApi() {
+function waitForApi(timeoutMs) {
     return new Promise((resolve) => {
         if (window.pywebview && window.pywebview.api) {
-            resolve();
+            resolve(true);
             return;
         }
-        // Poll every 100ms until the bridge is injected
+        let timer = null;
         const interval = setInterval(() => {
             if (window.pywebview && window.pywebview.api) {
                 clearInterval(interval);
-                resolve();
+                if (timer) clearTimeout(timer);
+                resolve(true);
             }
-        }, 100);
+        }, 50);
+        if (timeoutMs) {
+            timer = setTimeout(() => {
+                clearInterval(interval);
+                resolve(false);
+            }, timeoutMs);
+        }
     });
 }

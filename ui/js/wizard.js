@@ -429,9 +429,11 @@ function initWizard() {
     updateProgress();
     updateNavButtons();
 
-    // Try to pre-fill from existing .env (waitForApi from util.js)
-    if (window.pywebview && window.pywebview.api) {
-        waitForApi().then(async () => {
+    // Try to pre-fill from existing .env — timeout-based wait, because the
+    // bridge injects after load (instant checks skipped prefill in-app)
+    {
+        waitForApi(5000).then(async (ready) => {
+            if (!ready) return;
             try {
                 const existing = await pywebview.api.get_existing_keys();
                 if (existing) {

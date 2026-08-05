@@ -106,8 +106,8 @@ async function loadSkinChips() {
     let avatar = 'orb';
     let skins = [{ id: 'orb', name: 'Orb' }, { id: 'kedi', name: 'Kedi' }];
 
-    if (window.pywebview) {
-        await waitForApi();
+    // Timeout-based wait — instant window.pywebview checks race the bridge
+    if (await waitForApi(5000)) {
         try {
             const config = await pywebview.api.get_avatar();
             if (config && config.skins) {

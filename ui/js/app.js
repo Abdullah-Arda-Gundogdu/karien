@@ -141,16 +141,18 @@ document.addEventListener('DOMContentLoaded', () => {
     bindShell();
     bindSettingsStatic();
 
-    // Wait for pywebview API bridge (shared helper in util.js),
-    // then load dynamic data
-    if (window.pywebview) {
-        waitForApi().then(() => {
+    // Wait for the pywebview bridge with a timeout — NEVER branch on the
+    // instant presence of window.pywebview: it is injected asynchronously
+    // after page load, and an instant check made the real app fall into
+    // browser-preview mode ("Arka uç yok") on slower boots.
+    waitForApi(5000).then((ready) => {
+        if (ready) {
             initSettings();
             pollStatus();
             setInterval(pollStatus, STATUS_POLL_MS);
-        });
-    } else {
-        // Running in a normal browser (dev/preview mode) — honest empty states
-        initSettingsPreview();
-    }
+        } else {
+            // Genuinely no backend (opened in a normal browser)
+            initSettingsPreview();
+        }
+    });
 });
