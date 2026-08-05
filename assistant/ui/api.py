@@ -30,9 +30,13 @@ class UILogHandler(logging.Handler):
         self._api = api_instance
         self.setFormatter(logging.Formatter('%(message)s'))
 
+    # ANSI renk kaçış kodları (Python 3.13 renkli traceback'ler dahil) —
+    # UI konsolu düz metin bekler, kodlar kutucuk olarak görünüyordu.
+    _ANSI_RE = re.compile(r'\x1b\[[0-9;]*m')
+
     def emit(self, record):
         try:
-            msg = self.format(record)
+            msg = self._ANSI_RE.sub('', self.format(record))
             level_map = {
                 'DEBUG': 'info',
                 'INFO': 'info',

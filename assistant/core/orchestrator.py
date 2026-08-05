@@ -144,6 +144,21 @@ class Orchestrator:
             logger.warning(f"Failed to hide VTS: {e}")
 
     async def run(self):
+        # Quiet down harmless transport-cleanup noise: abruptly closed
+        # websockets (Deepgram session end, VTS absent) surface as EOFError/
+        # ConnectionResetError inside asyncio callbacks and would otherwise
+        # print scary tracebacks into the UI console.
+        loop = asyncio.get_running_loop()
+
+        def _quiet_exception_handler(loop, context):
+            exc = context.get("exception")
+            if isinstance(exc, (EOFError, ConnectionResetError, BrokenPipeError)):
+                logger.debug(f"Network cleanup noise ignored: {exc}")
+                return
+            loop.default_exception_handler(context)
+
+        loop.set_exception_handler(_quiet_exception_handler)
+
         # Register Skills
         from assistant.skills import LauncherSkill, SystemSkill, ShortcutsSkill, VisionSkill
         
