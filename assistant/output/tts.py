@@ -53,9 +53,18 @@ class TextToSpeech:
         self.is_running = True
         self.active_generations = 0
         self.lock = threading.Lock()
+        # Playback epoch: stop_playback() bumps it, and every queued item is
+        # stamped with the epoch it was created in. Items whose epoch is
+        # stale are discarded instead of played — this is what makes "stop"
+        # actually stop items that were ALREADY dequeued and mid-generation.
+        self._epoch = 0
         
         self.playback_thread = threading.Thread(target=self._playback_worker, daemon=True)
         self.playback_thread.start()
+
+    def _current_epoch(self) -> int:
+        with self.lock:
+            return self._epoch
 
     def _playback_worker(self):
         """
@@ -63,32 +72,50 @@ class TextToSpeech:
         """
         import pygame
         from pathlib import Path
-        
+
         while self.is_running:
             try:
                 # Get item from queue (blocking)
-                # item is now a tuple: (event, result_container)
+                # item is a tuple: (event, result_container, epoch)
                 item = self.queue.get(timeout=1)
-                
+
                 if item is None:
                     continue
-                    
-                completion_event, result_container = item
-                
-                # Wait for generation to complete
-                completion_event.wait()
-                
+
+                completion_event, result_container, epoch = item
+
+                # Wait for generation — but abandon within ~100ms if a stop
+                # superseded this item (don't sleep out a slow TTS API call)
+                while not completion_event.wait(timeout=0.1):
+                    if self._current_epoch() != epoch:
+                        break
+
+                if self._current_epoch() != epoch:
+                    # Stale: a stop happened after this item was dequeued.
+                    # Never play it; clean its temp file if generation finished.
+                    if completion_event.is_set():
+                        stale_path = result_container.get('path')
+                        if stale_path and result_container.get('is_temp', False):
+                            Path(stale_path).unlink(missing_ok=True)
+                    logger.debug("Discarded stale TTS item (stopped)")
+                    self.queue.task_done()
+                    continue
+
                 audio_file_path = result_container.get('path')
-                
+
                 if audio_file_path and Path(audio_file_path).exists():
                     logger.info(f"Playing audio: {audio_file_path}")
                     try:
                         pygame.mixer.music.load(str(audio_file_path))
                         pygame.mixer.music.play()
-                        
+
                         while pygame.mixer.music.get_busy():
+                            if self._current_epoch() != epoch:
+                                # Stop arrived mid-playback
+                                pygame.mixer.music.stop()
+                                break
                             pygame.time.Clock().tick(10)
-                            
+
                         # Unload to release file lock
                         pygame.mixer.music.unload()
 
@@ -123,10 +150,11 @@ class TextToSpeech:
         completion_event = threading.Event()
         completion_event.set()
         result_container = {'path': file_path}
-        
+
         # We don't increment active_generations because it's already "done"
-        # But we do put it in the playback queue
-        self.queue.put((completion_event, result_container))
+        # But we do put it in the playback queue (stamped with the current
+        # epoch so a stop also cancels queued chimes)
+        self.queue.put((completion_event, result_container, self._current_epoch()))
 
     def play_sound(self, name: str):
         """
@@ -184,16 +212,18 @@ class TextToSpeech:
         # Create a placeholder for the result to preserve order
         completion_event = threading.Event()
         result_container = {} # Mutable dict to hold result
-        
-        # Put placeholder in queue IMMEDIATELY
-        self.queue.put((completion_event, result_container))
+
+        # Stamp with the current epoch and put in queue IMMEDIATELY
+        with self.lock:
+            epoch = self._epoch
+            self.active_generations += 1
+        self.queue.put((completion_event, result_container, epoch))
 
         # Generate audio in a separate thread
-        with self.lock:
-            self.active_generations += 1
-        threading.Thread(target=self._generate_audio, args=(text, completion_event, result_container)).start()
+        threading.Thread(target=self._generate_audio,
+                         args=(text, completion_event, result_container, epoch)).start()
 
-    def _generate_audio(self, text, completion_event, result_container):
+    def _generate_audio(self, text, completion_event, result_container, epoch):
         try:
             from pathlib import Path
             import uuid
@@ -242,9 +272,20 @@ class TextToSpeech:
         finally:
             # Signal completion
             completion_event.set()
-            
+
             with self.lock:
-                self.active_generations -= 1
+                stale = (epoch != self._epoch)
+                if not stale:
+                    self.active_generations -= 1
+                # if stale: stop_playback already reset the counter to 0
+
+            if stale:
+                # A stop superseded this generation — it will never play;
+                # we own the temp file, clean it up ourselves.
+                from pathlib import Path
+                stale_path = result_container.get('path')
+                if stale_path and result_container.get('is_temp', False):
+                    Path(stale_path).unlink(missing_ok=True)
 
     def wait_for_idle(self):
         """
@@ -262,28 +303,40 @@ class TextToSpeech:
 
     def stop_playback(self):
         """
-        Immediately stop current playback and clear the queue.
-        Used for interruption handling.
+        Immediately stop current playback, cancel in-flight generations and
+        clear the queue. Used for interruption handling and the Stop button.
         """
         import pygame
-        
-        # Stop current playback
+        from pathlib import Path
+
+        # 1. Bump the epoch FIRST: everything created before this instant is
+        #    now stale — including items already dequeued by the worker and
+        #    generations still waiting on the TTS API.
+        with self.lock:
+            self._epoch += 1
+            self.active_generations = 0
+
+        # 2. Stop current playback
         try:
             pygame.mixer.music.stop()
             pygame.mixer.music.unload()
         except Exception as e:
             logger.debug(f"Error stopping playback: {e}")
-        
-        # Clear pending items from queue
+
+        # 3. Clear pending items from queue (unlink finished temp files)
         cleared = 0
         while not self.queue.empty():
             try:
-                self.queue.get_nowait()
+                item = self.queue.get_nowait()
+                if item:
+                    ev, rc, _ = item
+                    if ev.is_set() and rc.get('is_temp', False) and rc.get('path'):
+                        Path(rc['path']).unlink(missing_ok=True)
                 self.queue.task_done()
                 cleared += 1
             except queue.Empty:
                 break
-        
+
         if cleared > 0:
             logger.info(f"TTS interrupted, cleared {cleared} queued items")
         else:
