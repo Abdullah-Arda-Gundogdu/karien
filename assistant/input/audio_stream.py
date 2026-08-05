@@ -56,64 +56,110 @@ class AudioStream:
         # Control
         self._running = False
         self._thread: Optional[threading.Thread] = None
-        
+        # Serializes start/stop — the unlocked pair allowed a stop() to
+        # close/terminate PortAudio underneath a live capture thread
+        # (native SIGSEGV in PaUtil_ReadRingBuffer, confirmed by crash report)
+        self._op_lock = threading.Lock()
+
         logger.info(f"AudioStream initialized (buffer: {buffer_seconds}s, rate: {self.sample_rate}Hz)")
-    
+
     def start(self):
         """Start continuous audio capture."""
-        if self._running:
-            logger.warning("AudioStream already running")
-            return
-            
-        self._running = True
-        self._audio = pyaudio.PyAudio()
-        
-        # Get mic index from config (None means use system default)
-        mic_index = getattr(config, 'MIC_INDEX', None)
-        
-        self._stream = self._audio.open(
-            format=self.format,
-            channels=self.channels,
-            rate=self.sample_rate,
-            input=True,
-            input_device_index=mic_index,  # None = system default, 0+ = specific device
-            frames_per_buffer=self.chunk_size
-        )
-        
-        self._thread = threading.Thread(target=self._capture_loop, daemon=True)
-        self._thread.start()
-        
-        logger.info("AudioStream started")
-    
-    def stop(self):
-        """Stop audio capture."""
-        self._running = False
-        
-        if self._thread:
-            self._thread.join(timeout=2.0)
+        with self._op_lock:
+            if self._running:
+                logger.warning("AudioStream already running")
+                return
+            if self._thread and self._thread.is_alive():
+                raise RuntimeError(
+                    "AudioStream: previous capture thread is still alive"
+                )
+
+            # Get mic index from config (None means use system default)
+            mic_index = getattr(config, 'MIC_INDEX', None)
+
+            audio = None
+            stream = None
+            try:
+                audio = pyaudio.PyAudio()
+                stream = audio.open(
+                    format=self.format,
+                    channels=self.channels,
+                    rate=self.sample_rate,
+                    input=True,
+                    input_device_index=mic_index,  # None = system default
+                    frames_per_buffer=self.chunk_size
+                )
+            except Exception:
+                # Roll back cleanly — _running must never be left True after
+                # a failed open (it used to poison the singleton forever)
+                if stream is not None:
+                    try:
+                        stream.close()
+                    except Exception:
+                        pass
+                if audio is not None:
+                    audio.terminate()
+                raise
+
+            self._audio = audio
+            self._stream = stream
+            self._running = True  # only after a successful open
+
+            self._thread = threading.Thread(
+                target=self._capture_loop, args=(stream,), daemon=True
+            )
+            self._thread.start()
+
+            logger.info("AudioStream started")
+
+    def stop(self) -> bool:
+        """Stop audio capture.
+
+        The capture thread is joined to CONFIRMED death before the stream
+        is closed and PortAudio terminated — freeing them under a live
+        reader is a hard crash, not an exception. Returns False if the
+        thread refused to die (resources are then deliberately leaked).
+        """
+        with self._op_lock:
+            self._running = False
+
+            t = self._thread
+            if t and t.is_alive():
+                t.join(timeout=2.0)
+                if t.is_alive():
+                    logger.error(
+                        "AudioStream: capture thread did not exit; leaving "
+                        "PortAudio open (leak beats a use-after-free crash)"
+                    )
+                    return False
             self._thread = None
-            
-        if self._stream:
-            self._stream.stop_stream()
-            self._stream.close()
-            self._stream = None
-            
-        if self._audio:
-            self._audio.terminate()
-            self._audio = None
-            
-        logger.info("AudioStream stopped")
-    
-    def _capture_loop(self):
-        """Background thread that continuously captures audio."""
+
+            if self._stream:
+                self._stream.stop_stream()
+                self._stream.close()
+                self._stream = None
+
+            if self._audio:
+                self._audio.terminate()
+                self._audio = None
+
+            logger.info("AudioStream stopped")
+            return True
+
+    def _capture_loop(self, stream):
+        """Background thread that continuously captures audio.
+
+        Reads only the LOCAL stream reference — a later start() rebinding
+        self._stream can never hand this (old) thread a different stream.
+        """
         while self._running:
             try:
-                data = self._stream.read(self.chunk_size, exception_on_overflow=False)
+                data = stream.read(self.chunk_size, exception_on_overflow=False)
                 samples = np.frombuffer(data, dtype=np.int16)
-                
+
                 with self._buffer_lock:
                     self._buffer.extend(samples)
-                    
+
             except Exception as e:
                 if self._running:
                     logger.error(f"AudioStream capture error: {e}")

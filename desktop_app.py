@@ -28,13 +28,22 @@ OVERLAY_MARGIN_RIGHT = 12
 OVERLAY_TOP = 36
 
 
+# One-shot guard: 'loaded' fires on EVERY page navigation, and re-calling
+# voice_service.start() from here silently un-muted a deliberately muted
+# service (and raced its shutdown). Voice auto-starts exactly once per app
+# run; afterwards only the UI's own toggle controls it.
+_voice_autostart = {"done": False}
+
+
 def on_loaded(window, api, voice_service):
     """Called when pywebview finishes loading a page in the main window."""
     api.set_window(window)
 
     # Start voice AFTER the webview is ready. Skip during the first-run
-    # wizard; when the wizard navigates to index.html this fires again.
-    if not api.is_first_run():
+    # wizard; when the wizard navigates to index.html this fires again
+    # (and performs the single autostart).
+    if not api.is_first_run() and not _voice_autostart["done"]:
+        _voice_autostart["done"] = True
         try:
             voice_service.start()
         except Exception as e:

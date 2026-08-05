@@ -229,8 +229,11 @@ class Orchestrator:
                         self.play_startup_sound()
                         await asyncio.to_thread(self.bring_vts_to_front)
                     else:
-                        # If listen returned False (e.g. error/timeout/interrupt), check if running
-                        if not self.running: break
+                        # listen returned False (error/stop request). Break on
+                        # either flag — vosk's stop_requested closes the race
+                        # where a restart re-set self.running before we looped.
+                        if not self.running or vosk_stt.stop_requested:
+                            break
                         await asyncio.sleep(1)
                         
                 else:
