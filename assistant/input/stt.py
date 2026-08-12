@@ -58,6 +58,7 @@ class DeepgramSTT:
             channels=self.channels,
             rate=self.rate,
             input=True,
+            input_device_index=getattr(config, 'MIC_INDEX', None),
             frames_per_buffer=self.chunk
         )
         
@@ -223,6 +224,7 @@ class DeepgramSTT:
             channels=self.channels,
             rate=self.rate,
             input=True,
+            input_device_index=getattr(config, 'MIC_INDEX', None),
             frames_per_buffer=self.chunk
         )
         

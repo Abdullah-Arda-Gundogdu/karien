@@ -34,6 +34,23 @@ class VoskSTT:
         # shared stream/recognizer and close a stream under a blocked reader
         self._listen_lock = threading.Lock()
 
+        if not os.path.exists(self.model_path):
+            logger.error(f"Vosk model not found at {self.model_path}. Please download it.")
+        else:
+            try:
+                # Suppress Vosk logs (they are very verbose)
+                null_fd = os.open(os.devnull, os.O_RDWR)
+                save_stderr = os.dup(2)
+                os.dup2(null_fd, 2)
+
+                self.model = Model(self.model_path)
+
+                # Restore stderr
+                os.dup2(save_stderr, 2)
+                os.close(null_fd)
+            except Exception as e:
+                logger.error(f"Failed to load Vosk model: {e}")
+
     def request_stop(self):
         """Ask a running listen_for_wakeword to return False promptly."""
         self._stop_event.set()
@@ -45,23 +62,6 @@ class VoskSTT:
     @property
     def stop_requested(self) -> bool:
         return self._stop_event.is_set()
-        
-        if not os.path.exists(self.model_path):
-            logger.error(f"Vosk model not found at {self.model_path}. Please download it.")
-        else:
-            try:
-                # Suppress Vosk logs (they are very verbose)
-                null_fd = os.open(os.devnull, os.O_RDWR)
-                save_stderr = os.dup(2)
-                os.dup2(null_fd, 2)
-                
-                self.model = Model(self.model_path)
-                
-                # Restore stderr
-                os.dup2(save_stderr, 2)
-                os.close(null_fd)
-            except Exception as e:
-                logger.error(f"Failed to load Vosk model: {e}")
 
     def _cleanup_stream(self):
         """Properly close the audio stream."""
@@ -119,7 +119,12 @@ class VoskSTT:
                 try:
                     # Open stream if not open
                     if not self.stream:
-                        self.stream = self.audio.open(format=pyaudio.paInt16, channels=1, rate=16000, input=True, frames_per_buffer=4096)
+                        from assistant.core.config import config
+                        self.stream = self.audio.open(
+                            format=pyaudio.paInt16, channels=1, rate=16000,
+                            input=True,
+                            input_device_index=getattr(config, 'MIC_INDEX', None),
+                            frames_per_buffer=4096)
                         self.stream.start_stream()
                         logger.info(f"Microphone stream started. Listening for: {keywords}")
 

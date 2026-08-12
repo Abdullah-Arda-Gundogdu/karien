@@ -583,7 +583,10 @@ class KarienAPI:
         """Send a log line to the UI console."""
         if self._window:
             # Escape for safe JS injection
-            safe_msg = message.replace("\\", "\\\\").replace("'", "\\'").replace('"', '\\"').replace("\n", "\\n")
+            safe_msg = (message.replace("\\", "\\\\").replace("'", "\\'")
+                        .replace('"', '\\"').replace("\n", "\\n")
+                        .replace("\r", "\\r")
+                        .replace("\u2028", "\\u2028").replace("\u2029", "\\u2029"))
             self._window.evaluate_js(f"addLog('{level}', \"{safe_msg}\")")
 
     def update_status(self, status):

@@ -158,3 +158,39 @@ def test_reset_stop_allows_fresh_listen(stt):
     assert stt.listen_for_wakeword(["hey kariyer"]) is False
     stt.reset_stop()
     assert stt.stop_requested is False
+
+
+def test_real_init_loads_model(monkeypatch, tmp_path):
+    """
+    Regression for the merge blocker caught in review: inserting the
+    stop members into __init__ once left the model-loading block stranded
+    as dead code inside the stop_requested property — self.model stayed
+    None and the wake word was silently dead while all tests passed
+    (fixtures bypassed __init__). This test goes through the REAL
+    constructor and pins model loading in place.
+    """
+    loaded = []
+
+    def fake_model(path):
+        loaded.append(path)
+        return object()
+
+    monkeypatch.setattr(vosk_mod, "Model", fake_model)
+    monkeypatch.setattr(
+        vosk_mod.pyaudio, "PyAudio",
+        lambda: types.SimpleNamespace(open=lambda **k: None,
+                                      terminate=lambda: None),
+    )
+
+    model_dir = tmp_path / "model"
+    model_dir.mkdir()
+
+    inst = vosk_mod.VoskSTT(model_path=str(model_dir))
+
+    assert inst.model is not None, \
+        "real __init__ must load the Vosk model — wake word depends on it"
+    assert loaded == [str(model_dir)]
+    # The stop members must coexist with a loaded model
+    assert inst.stop_requested is False
+    inst.request_stop()
+    assert inst.stop_requested is True
